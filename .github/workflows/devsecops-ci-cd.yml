@@ -1,0 +1,38 @@
+name: DevSecOps ESG Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Lint & Static Analysis
+      - name: Lint Python
+        run: |
+          pip install flake8
+          flake8 services/
+
+      # 2. Snyk Dependency Scan
+      - name: Snyk Open Source Scan
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      # 3. Build & Trivy Container Scan
+      - name: Build and Scan Image
+        run: |
+          docker build -t esg-compliance:latest services/compliance/
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image --severity HIGH,CRITICAL esg-compliance:latest
+
+      # 4. Terraform Security Check
+      - name: Terraform Plan
+        run: |
+          cd terraform
+          terraform init
+          terraform plan -out=tfplan

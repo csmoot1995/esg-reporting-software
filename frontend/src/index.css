@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Outfit:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply bg-esg-cream text-esg-forest font-sans min-h-screen;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-lg border border-esg-mint/20 overflow-hidden;
+  }
+  .card-critical {
+    @apply card border-2 border-esg-alert bg-red-50/80;
+  }
+  .btn-primary {
+    @apply px-5 py-2.5 rounded-lg font-semibold text-base bg-esg-sage text-white shadow-md hover:bg-esg-forest hover:shadow-lg focus:ring-2 focus:ring-esg-mint focus:ring-offset-2 transition-all disabled:opacity-50 disabled:pointer-events-none border-2 border-esg-forest/20;
+  }
+  .btn-secondary {
+    @apply px-5 py-2.5 rounded-lg font-semibold text-base bg-esg-mint/40 text-esg-forest border-2 border-esg-sage/50 shadow hover:bg-esg-mint/60 hover:shadow-md focus:ring-2 focus:ring-esg-sage focus:ring-offset-2 transition-all;
+  }
+  .input-field {
+    @apply w-full rounded-lg border border-esg-sage/30 bg-white px-3 py-2 text-esg-forest placeholder-esg-sage/50 focus:border-esg-sage focus:outline-none focus:ring-1 focus:ring-esg-sage;
+  }
+  .toast-critical {
+    @apply fixed top-4 right-4 z-50 max-w-md rounded-lg border-2 border-esg-alert bg-red-50 px-4 py-3 shadow-xl;
+    animation: toast-in 0.3s ease-out;
+  }
+
+  /* Sustainability telemetry: metric cards by domain (carbon, water, efficiency, hardware, data quality) */
+  .metric-card {
+    @apply card p-4 flex flex-col gap-1;
+  }
+  .metric-card-carbon {
+    @apply metric-card border-l-4 border-esg-carbon bg-gray-50/60;
+  }
+  .metric-card-water {
+    @apply metric-card border-l-4 border-esg-water bg-sky-50/50;
+  }
+  .metric-card-efficiency {
+    @apply metric-card border-l-4 border-esg-efficiency bg-esg-mint/15;
+  }
+  .metric-card-hardware {
+    @apply metric-card border-l-4 border-esg-hardware bg-violet-50/50;
+  }
+  .metric-card-data-quality {
+    @apply metric-card border-l-4 border-esg-data-quality bg-amber-50/40;
+  }
+
+  /* Sustainability scorecard (composite index from carbon, water, PUE, utilization) */
+  .scorecard-container {
+    @apply card p-6 flex flex-col gap-4;
+  }
+  .scorecard-grade {
+    @apply inline-flex items-center justify-center rounded-full font-display font-bold text-white text-sm min-w-[2.5rem] min-h-[2.5rem];
+  }
+  .scorecard-grade-a { @apply scorecard-grade bg-esg-success; }
+  .scorecard-grade-b { @apply scorecard-grade bg-esg-sage; }
+  .scorecard-grade-c { @apply scorecard-grade bg-esg-amber; }
+  .scorecard-grade-d { @apply scorecard-grade bg-orange-500; }
+  .scorecard-grade-f { @apply scorecard-grade bg-esg-alert; }
+  .scorecard-component-bar {
+    @apply h-2 rounded-full bg-esg-mint/20 overflow-hidden;
+  }
+  .scorecard-component-fill {
+    @apply h-full rounded-full transition-all duration-500;
+  }
+
+  /* Telemetry ingest / report status and lineage */
+  .telemetry-status-accepted {
+    @apply text-esg-success font-medium;
+  }
+  .telemetry-status-rejected {
+    @apply text-esg-alert font-medium;
+  }
+  .lineage-badge {
+    @apply inline-flex items-center gap-1 rounded-md bg-esg-mint/25 px-2 py-0.5 text-xs font-medium text-esg-forest;
+  }
+
+  /* Smooth transitions for contextual navigation */
+  .transition-contextual {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  /* Enhanced card hover effects */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Recharts: base + sustainability telemetry series (carbon, water, efficiency, etc.) */
+.recharts-wrapper {
+  @apply w-full;
+}
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  @apply stroke-esg-mint/30;
+}
+.recharts-legend-item-text {
+  @apply text-esg-forest text-sm;
+}
+.recharts-tooltip-wrapper {
+  @apply rounded-lg border border-esg-mint/30 bg-esg-cream/95 shadow-lg px-3 py-2;
+}

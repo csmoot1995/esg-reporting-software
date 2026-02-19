@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-deployment
+  labels:
+    app: compliance
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: compliance
+  template:
+    metadata:
+      labels:
+        app: compliance
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: compliance
+        image: compliance:v1.0.0
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+            storage: "1Gi"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+            storage: "2Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        volumeMounts:
+        - name: compliance-storage
+          mountPath: /data
+      volumes:
+      - name: compliance-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-service
+spec:
+  selector:
+    app: compliance
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP

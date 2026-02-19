@@ -1,0 +1,23 @@
+{
+  "version_id": "v1",
+  "valid_from": "2024-01-01T00:00:00Z",
+  "valid_to": "2030-12-31T23:59:59Z",
+  "location_based_kg_co2e_per_kwh": 0.5,
+  "market_based_kg_co2e_per_kwh": 0.45,
+  "diesel_kg_co2e_per_liter": 2.68,
+  "natural_gas_kg_co2e_per_m3": 2.0,
+  "regions": {
+    "default": {
+      "location_based_kg_co2e_per_kwh": 0.5,
+      "market_based_kg_co2e_per_kwh": 0.45
+    },
+    "us-west": {
+      "location_based_kg_co2e_per_kwh": 0.35,
+      "market_based_kg_co2e_per_kwh": 0.32
+    },
+    "eu-central": {
+      "location_based_kg_co2e_per_kwh": 0.28,
+      "market_based_kg_co2e_per_kwh": 0.30
+    }
+  }
+}

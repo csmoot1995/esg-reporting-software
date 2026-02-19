@@ -1,0 +1,44 @@
+{
+  "timestamp": "2024-06-15T12:00:00Z",
+  "asset_id": "DC1-RACK-A01",
+  "region": "us-west",
+  "source_id": "gateway-01",
+  "external_event_id": "benchmark-001",
+  "emission_factor_version": "v1",
+  "energy": {
+    "facility_kwh": 1200.0,
+    "it_kwh": 1000.0,
+    "cooling_kwh": 180.0,
+    "generator_fuel_liters": 0,
+    "energy_unit": "kWh"
+  },
+  "water": {
+    "withdrawal_liters": 8000.0,
+    "returned_liters": 6400.0,
+    "consumed_liters": 1600.0,
+    "reclaimed_liters": 1600.0,
+    "evaporation_liters": 1200.0,
+    "blowdown_liters": 400.0,
+    "water_unit": "liters"
+  },
+  "compute": {
+    "gpu_hours": 200.0,
+    "gpu_count": 100,
+    "run_duration_seconds": 7200,
+    "run_type": "training",
+    "training_runs": 4,
+    "inference_requests": 0
+  },
+  "hardware": {
+    "utilization_pct": 75.0,
+    "idle_rate_pct": 25.0,
+    "asset_state": "active"
+  },
+  "data_quality": {
+    "completeness_pct": 98.0,
+    "latency_seconds": 5.0,
+    "outlier_flag": false,
+    "drift_flag": false,
+    "confidence_score": 0.92
+  }
+}
