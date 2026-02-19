@@ -1,216 +1,311 @@
-# ESG Platform
+# Universal ESG Reporting & Telemetry Infrastructure
 
-## Overview
+<div align="center">
 
-This ESG platform is an **AI data center sustainability** reference implementation for monitoring and improving environmental performance of data centers running AI workloads. It provides:
+**Sustainability-as-Code Framework** — Mission-critical environmental telemetry for the modern enterprise.
 
-- **Compliance Validation** — Environmental report validation and attestation
-- **Smart Environmental Alerts** — Real-time telemetry and threshold-based alerts (CO₂, temperature)
-- **Environmental What-If Simulator** — Carbon footprint projection under efficiency and energy-mix scenarios
-- **Sustainability Telemetry & Metrics** — Carbon, water, efficiency, and hardware telemetry with compute-normalized metrics, data lineage, and a sustainability scorecard
+[![Docker](https://img.shields.io/badge/Docker-Compatible-blue?logo=docker)](https://www.docker.com/)
+[![Python](https://img.shields.io/badge/Python-3.11+-yellow?logo=python)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-Backend-black?logo=flask)](https://flask.palletsprojects.com/)
+[![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react)](https://reactjs.org/)
+[![Tests](https://img.shields.io/badge/Tests-Pytest%20%7C%20Jest-green?logo=pytest)](https://pytest.org/)
 
-Platform purpose: unified ingestion, calculation, and reporting for **AI data center sustainability** (carbon per GPU-hour, water usage effectiveness, PUE, embodied carbon, and related KPIs) with strict schema validation, emission factor versioning, and auditability.
-
----
-
-## Architecture
-
-- **Telemetry ingestion pipeline** — `POST /api/telemetry/ingest` accepts JSON payloads with energy, water, carbon, compute, hardware, and data-quality blocks. Payloads are schema-validated, normalized to canonical units (kWh, liters, GPU-hours), and stored with a unique constraint for idempotency (`source_id` + `external_event_id`). All timestamps are normalized to UTC.
-- **Calculation engine** — Carbon (Scope 1/2, carbon per GPU-hour, per training run, per inference), water (WUE, water per GPU-hour, reclaimed %), efficiency (PUE, DCiE, cooling energy %, chiller COP), hardware (utilization %, idle %), and data-quality (completeness, latency, confidence, outlier/drift flags) are computed from raw telemetry using versioned emission factors.
-- **Storage model** — Time-series–oriented SQLite store: `telemetry_raw`, `metrics_carbon`, `metrics_water`, `metrics_efficiency`, `metrics_hardware`, `metrics_data_quality`, and an optional asset registry. Emission factors are loaded from versioned JSON under `data/emission_factors/`.
-- **Audit / logging layer** — Immutable append-only JSONL audit log (e.g. `logs/telemetry_audit.log`) for ingest accepted/rejected, calculations, alerts, and duplicate rejection. No in-place mutation.
-- **Alerting system** — Alert engine evaluates carbon intensity spikes, water inefficiency (WUE, water per GPU-hour, reclaimed %), cooling anomalies (PUE, cooling %, chiller COP), and sensor drift. Thresholds are configurable via environment variables.
+</div>
 
 ---
 
-## Supported Metrics
+## 📋 High-Level Overview
 
-### Carbon metrics
+This is not just an application. It is a **Sustainability-as-Code framework** that treats carbon and water data with the same mission-critical rigor as system logs.
 
-| Metric | Description | Unit |
-|--------|-------------|------|
-| Scope 1 emissions | From generator fuel (diesel, natural gas) | kg CO₂e |
-| Scope 2 (location-based) | Grid emissions by location | kg CO₂e |
-| Scope 2 (market-based) | Grid emissions by market | kg CO₂e |
-| Time-of-use grid carbon intensity | Carbon intensity of grid by interval | kg CO₂e/kWh |
-| Carbon per GPU-hour | Total carbon / GPU-hours | kg CO₂e/GPU-hour |
-| Carbon per training run | Total carbon / training runs | kg CO₂e/run |
-| Carbon per inference request | Total carbon / inference requests | kg CO₂e/request |
-| Embodied carbon per asset | Amortized embodied carbon per GPU-hour | kg CO₂e/GPU-hour |
+**Universal Ingestion** is our core architectural principle: a unified pipeline capable of ingesting environmental telemetry from any source, transforming it into standardized metrics, and delivering auditable reports for regulatory compliance. The platform provides seamless integration across four distinct verticals:
 
-### Water metrics
+- **AI Data Centers**: GPU-intensive workloads, PUE optimization, water consumption tracking
+- **Logistics & Fleet**: Vehicle emissions, route optimization, carbon-per-mile analytics
+- **Smart Manufacturing**: Production-line energy, industrial IoT sensors, process efficiency
+- **Cloud SaaS**: API request carbon attribution, multi-tenant cost/impact allocation
 
-| Metric | Description | Unit |
-|--------|-------------|------|
-| Total water withdrawal | Total water drawn | liters |
-| Water consumed vs returned | Consumed and returned volumes | liters |
-| Reclaimed water % | Reclaimed as % of withdrawal | % |
-| WUE (Water Usage Effectiveness) | Cooling water / IT energy | L/kWh |
-| Water per GPU-hour | Total water / GPU-hours | L/GPU-hour |
-| Water per training run | Total water / training runs | L/run |
-| Cooling tower (evaporation, blowdown) | Tower telemetry | liters |
-| Regional water stress weighting | Multiplier by region | — |
-
-### Efficiency metrics
-
-| Metric | Description | Unit |
-|--------|-------------|------|
-| PUE | Total facility energy / IT energy | ratio |
-| DCiE | 1 / PUE | ratio |
-| Energy per compute workload | kWh per GPU-hour, per run, per request | kWh/unit |
-| Cooling energy % | Cooling energy / total facility energy | % |
-| Chiller COP | Cooling effect / chiller energy | ratio |
-
-### Hardware metrics
-
-| Metric | Description | Unit |
-|--------|-------------|------|
-| Asset registry (embodied carbon) | Per-asset embodied carbon and lifetime | kg CO₂e, hours |
-| Lifecycle emission modeling | Amortized embodied carbon per GPU-hour | kg CO₂e/GPU-hour |
-| Hardware utilization % | Utilization rate | % |
-| Idle rate % | Idle time rate | % |
-
-### Data quality metrics
-
-| Metric | Description | Unit |
-|--------|-------------|------|
-| Data completeness % | Expected vs actual samples | % |
-| Data latency | Ingestion time − observation time | seconds |
-| Outlier detection flag | Statistical outlier (e.g. z-score) | flag |
-| Sensor drift detection | Baseline vs recent shift | flag |
-| Confidence score per metric | Composite of completeness, latency, outlier, drift | 0–1 |
-
-### Formulas
-
-- **PUE** = Total facility energy (kWh) / IT equipment energy (kWh)
-- **WUE** = Total water used for cooling (L) / IT energy (kWh)
-- **Carbon per GPU-hour** = Total kg CO₂e / GPU-hours
-- **Carbon per training run** = Total kg CO₂e / number of training runs
-- **Sustainability Score** = (w_carbon × (1 − C_norm)) + (w_water × (1 − W_norm)) + (w_efficiency × (1 − PUE_norm)) + (w_hardware × U_norm), with configurable weights and documented baselines (carbon/water intensity, PUE range, utilization target). Score 0–1 or 0–100.
+By unifying these verticals under a single schema, organizations eliminate data silos and gain cross-functional visibility into their environmental footprint.
 
 ---
 
-## Data Governance
+## 🏗️ Architecture
 
-- **Emission factor versioning** — All carbon calculations use a versioned emission factor store (`data/emission_factors/*.json`). Each factor set has `version_id`, `valid_from`, `valid_to`, and per-region overrides. Stored metrics reference `emission_factor_version` for reproducibility.
-- **Audit trail** — Every ingest (accepted/rejected), calculation, alert, and duplicate rejection is written to an immutable JSONL audit log.
-- **Data lineage** — Each derived metric stores lineage: `raw_payload_id`, `source_id`, `ingestion_request_id`, `emission_factor_version`, and calculation step. Lineage can be queried for traceability.
-- **Compliance alignment** — Methodology aligns with GHG Protocol (Scope 1/2), ISO 14064, and common carbon accounting practice for data centers.
+### Modular Service-Oriented Design
 
----
-
-## Data sources
-
-The platform supports ESG data from multiple origins:
-
-| Category | Examples | Current / planned |
-|----------|----------|-------------------|
-| **IoT sensor data** | Energy meters, water meters, emissions sensors | Alerts: CO₂ ppm, temperature. Telemetry: full carbon, water, energy, compute, hardware. |
-| **API feeds** | Utility providers, fleet systems, ERP, carbon accounting tools | Normalize to telemetry ingest schema; use `X-Ingestion-Source`. |
-| **Manual entries** | Facility logs, supplier disclosures | Compliance flow; structured manual data via telemetry schema possible. |
-| **Derived metrics** | Scope 1/2/3, intensity ratios | Telemetry calculation engine; simulator for footprint projection. |
-| **Event-driven alerts** | Threshold breaches, anomalies | Alerts service (CO₂/temp); telemetry alert engine (carbon, water, PUE, drift). |
-
-### Ingestion protocol
-
-- **Spec:** [docs/INGESTION_PROTOCOL.md](docs/INGESTION_PROTOCOL.md)
-- **Transport:** `POST` with `Content-Type: application/json` to the appropriate `/api/<service>/` path.
-- **Auth:** Compliance requires `X-API-KEY`; telemetry and simulator do not.
-- **Responses:** JSON; errors use `{"error": {"code": "...", "message": "..."}}` with HTTP 400, 403, 415, 409, 500 as applicable.
-- **Optional headers:** `X-Request-ID`, `X-Ingestion-Source`, `X-Source-ID`.
-
-| Ingestion type | Endpoint | Purpose |
-|----------------|----------|---------|
-| Telemetry (legacy CO₂/temp) | `POST /api/alerts/process-telemetry` | CO₂ ppm, temperature |
-| **Sustainability telemetry** | **`POST /api/telemetry/ingest`** | **Carbon, water, energy, compute, hardware, data quality** |
-| Compliance (reports) | `POST /api/compliance/validate` | Report validation (API key) |
-| Simulation input | `POST /api/simulator/simulate` | Current footprint + scenario params |
-
----
-
-## Module Overview
-
-1. **Compliance Validation** — Environmental report validation.
-2. **Smart Environmental Alerts** — Real-time CO₂ and temperature alerts.
-3. **Environmental What-If Simulator** — Carbon projection scenarios.
-4. **Sustainability Telemetry** — Ingestion, calculations, lineage, audit, alerts, scorecard.
-5. **Frontend** — UI for dashboard, compliance, simulator (and optional telemetry).
-
----
-
-## Testing
-
-- **Test categories** — Unit tests (schema, units, carbon/water/efficiency/scorecard/alert logic), duplicate and missing-telemetry handling, emission factor regression, lineage checks, and (when Flask is installed) integration tests for ingest, duplicate rejection, and report endpoint.
-- **Regression validation** — Carbon calculations are tested against a benchmark dataset with ±0.5% variance requirement; emission factor version is pinned. Data lineage and version reference are asserted.
-- **Load testing** — Telemetry ingestion is idempotent and can be load-tested with concurrent `POST /ingest`; duplicate key constraint prevents double-counting.
-
-**Run telemetry tests:**
-
-```bash
-# From repo root; install telemetry deps for full suite (including integration)
-pip install -r services/telemetry/requirements.txt
-python -m pytest tests/telemetry -v
-```
-
-Without Flask, integration tests are skipped; all other telemetry tests run.
-
----
-
-## Deployment
-
-- **Required services** — Compliance (8080), Alerts (8081), Simulator (8082), Telemetry (8083), Frontend (3000). See `docker-compose.yml`.
-- **Environment variables** — Compliance: `ADMIN_KEY`, `AUDITOR_KEY`. Telemetry: `TELEMETRY_DATA_DIR` (optional, for DB and emission factors), `PORT` (default 8083), alert thresholds (`TELEMETRY_ALERT_*`), scorecard weights (`TELEMETRY_SCORECARD_WEIGHT_*`).
-- **Secrets management** — Kubernetes Secrets and `.env`; never commit keys.
-- **Scaling** — Telemetry ingestion is stateless per request; storage is file-based (SQLite). For horizontal scaling, use a shared DB or replace with a distributed store; idempotency keys (`source_id`, `external_event_id`) remain required.
-
----
-
-## Frontend Details
-
-The frontend integrates with backends at `/api/alerts/`, `/api/compliance/`, `/api/simulator/`. Optional: proxy `/api/telemetry/` to the telemetry service (port 8083) for sustainability ingest and report.
-
-### Running the full stack (frontend + backends)
-
-1. **Docker Compose:** If you don't have a `.env` file, copy `.env.example` to `.env` (set `ADMIN_KEY` and `AUDITOR_KEY` for production). Run `docker compose up --build`. Open http://localhost:3000.
-2. **Local:** Start compliance (8080), alerts (8081), simulator (8082), telemetry (8083), then frontend `npm run dev`. Open http://localhost:9000.
-
----
-
-## CI/CD Pipeline
+The platform is architected as a constellation of purpose-built microservices, each optimized for a specific domain:
 
 ```mermaid
-graph TD
-    A[Lint] --> B[Test]
-    B --> C[Build Docker Images]
-    C --> D[Snyk Dependency Scan]
-    D --> E[Trivy Container Scan]
-    E --> F[Terraform Plan]
-    F --> G[Deploy to Kubernetes]
+flowchart TB
+    subgraph Ingestion["🌍 Telemetry Ingestion Service (Port 8083)"]
+        A1[Sensor Data API]
+        A2[CSV/JSONL Bulk Upload]
+        A3[External ETL Hooks]
+    end
+
+    subgraph Processing["📊 Processing Layer"]
+        B1[Idempotent Validation]
+        B2[Unit Normalization]
+        B3[Versioned Emission Factors]
+    end
+
+    subgraph Compliance["⚖️ Compliance Service (Port 8080)"]
+        C1[GHG Protocol Calculations]
+        C2[Regulatory Report Generation]
+        C3[Audit Log Emission]
+    end
+
+    subgraph Simulator["🔮 Simulator Service (Port 8082)"]
+        D1[Monte Carlo Projections]
+        D2[What-If Scenario Modeling]
+        D3[Efficiency Trend Forecasting]
+    end
+
+    subgraph Alerts["🚨 Alerts Service (Port 8081)"]
+        E1[Threshold Monitoring]
+        E2[Anomaly Detection]
+        E3[Webhook Notifications]
+    end
+
+    subgraph Storage["💾 Data Layer"]
+        F1[(SQLite / External DB)]
+        F2[Immutable JSONL Audit Logs]
+        F3[Versioned Emission Factor Registry]
+    end
+
+    subgraph Frontend["🖥️ Next.js Frontend (Port 3000)"]
+        G1[Dashboard]
+        G2[Scorecards]
+        G3[Lineage Explorer]
+    end
+
+    Ingestion --> Processing --> Compliance
+    Processing --> Simulator
+    Processing --> Alerts
+    Compliance --> Storage
+    Simulator --> Storage
+    Alerts --> Storage
+    Compliance --> Frontend
+    Simulator --> Frontend
+    Alerts --> Frontend
 ```
 
-Include telemetry tests in CI: `pytest tests/telemetry` (install `services/telemetry/requirements.txt` first). CI should fail if emissions variance exceeds ±0.5% vs benchmark, data lineage lacks version, or duplicate payload is accepted.
+### Service Responsibilities
+
+| Service | Port | Core Function |
+|---------|------|---------------|
+| **Telemetry** | `8083` | Ingestion API, data validation, unit conversion, source tagging |
+| **Compliance** | `8080` | GHG Protocol math, emission factor resolution, regulatory formatting |
+| **Simulator** | `8082` | Predictive modeling, scenario analysis, projection endpoints |
+| **Alerts** | `8081` | Rule-based monitoring, threshold breaches, anomaly notifications |
+| **Frontend** | `3000` | React/Next.js dashboard, visualization, export tooling |
 
 ---
 
-## Kubernetes, Terraform, Security, Logging
+## 📊 Cross-Vertical Metric Adaptation
 
-- **Kubernetes:** Apply ConfigMaps/Secrets; deploy manifests (add telemetry deployment and service for 8083).
-- **Terraform:** `terraform init && terraform plan && terraform apply`.
-- **Security:** RBAC (admin, auditor, viewer); validate required env keys.
-- **Secrets:** Kubernetes Secrets and `.env`.
-- **Logging:** Structured JSON logs; optional Splunk/ELK.
+The platform automatically adapts measurement units, emission factors, and reporting formats based on the source vertical:
 
----
-
-## Example dataset and report
-
-- **Benchmark telemetry:** `data/examples/benchmark_telemetry.json` — sample payload for validation (expected PUE, WUE, carbon per GPU-hour, etc.).
-- **Sample report:** `examples/sample_report.json` — example output shape for carbon, water, efficiency, hardware, data quality, sustainability score, and lineage.
+| **Vertical** | **Primary Functional Unit** | **Core KPI** | **Key Metrics Tracked** |
+|:-------------|:----------------------------|:-------------|:------------------------|
+| **AI Data Center** | GPU-Hour | **PUE** (Power Usage Effectiveness) | Energy (kWh), Water (L), GPU Utilization%, Carbon per GPU-hr |
+| **Logistics / Fleet** | Vehicle Mile | **Carbon-per-Mile** (gCO₂/mi) | Fuel (L), Distance (km/mi), Vehicle Class, Route Efficiency |
+| **Smart Manufacturing** | Production Unit | **Carbon-per-Unit** (kgCO₂/unit) | Electricity (MWh), Process Heat, Raw Material Mass, Waste % |
+| **Cloud SaaS** | API Request | **Carbon-per-Request** (mgCO₂/req) | Compute Time (ms), Data Transfer (GB), Region Carbon Intensity |
 
 ---
 
-## Example Commands
+## 🔒 DevOps & Governance Features
 
-- Launch stack: `docker-compose up`
-- Run telemetry tests: `pip install -r services/telemetry/requirements.txt && python -m pytest tests/telemetry -v`
-- Simulate Terraform: `bash simulate_terraform.sh`
+### Idempotent Ingestion
+All telemetry submissions are deduplicated via composite key validation:
+```
+(source_id, external_event_id) → Unique Constraint
+```
+This guarantees exactly-once semantics for sensor streams and batch ETL jobs.
+
+### Versioned Emission Factors
+Carbon calculations use **reproducible, version-locked emission factors** stored in JSON registries. Each factor includes:
+- Semantic version (e.g., `2024.3.1`)
+- Geographical applicability (grid region, country code)
+- Source authority (EPA, DEFRA, IEA, custom)
+- Uncertainty bounds for Monte Carlo simulation
+
+### Auditability: Immutable JSONL Logs
+GHG Protocol compliance requires tamper-evident audit trails. All raw telemetry and computed emissions are appended to **immutable JSONL files** with SHA-256 content hashes, suitable for external auditor review.
+
+### Data Lineage
+Full traceability from raw sensor → normalized record → emission calculation → report cell. The lineage graph captures:
+- Source system identifiers
+- Transformation operations (unit conversion, interpolation)
+- Emission factor versions applied
+- Calculation timestamps and responsible service
+
+---
+
+## 📐 Sustainability Score Formula
+
+The composite **Sustainability Score** $S$ aggregates efficiency metrics across all verticals:
+
+$$
+S = \underbrace{w_{1} \cdot \frac{1}{\text{PUE}_{\text{norm}} - 1}}_{\text{Data Center Efficiency}} + \underbrace{w_{2} \cdot \frac{1}{\text{Carbon}_{\text{mile}}}}_{\text{Logistics Efficiency}} + \underbrace{w_{3} \cdot \frac{\text{Production}}{\text{Energy} \cdot \text{Factor}_{\text{grid}}}}_{\text{Manufacturing Yield}} + \underbrace{w_{4} \cdot \frac{\text{Requests}}{\text{Carbon}_{\text{req}} \cdot 10^{6}}}_{\text{SaaS Density}}
+$$
+
+Where weights $w_{1..4}$ are normalized to $\sum w_{i} = 1$ based on organizational prioritization.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology | Purpose |
+|:------|:-----------|:--------|
+| **Frontend** | React 18 + Next.js | Dashboard, data visualization, export UI |
+| **Backend** | Python 3.11 + Flask | REST API, calculations, ingestion |
+| **Storage** | SQLite (default) / PostgreSQL | Relational data, JSONL audit logs |
+| **DevOps** | Docker + Docker Compose | Local development, service orchestration |
+| **Orchestration** | Kubernetes (optional) | Production deployment manifests included |
+| **Testing** | Pytest (backend) + Jest (frontend) | Unit, integration, E2E coverage |
+| **CI/CD** | GitHub Actions | Automated testing, linting, image builds |
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker 20.10+ and Docker Compose 2.x
+- Python 3.11+ (for local development)
+- Node.js 18+ (for frontend development)
+
+### 1. Clone and Configure
+```bash
+git clone <repository-url>
+cd esg-software
+cp .env.example .env
+# Edit .env to set your environment variables
+```
+
+### 2. Start All Services
+```bash
+docker-compose up --build
+```
+
+Services will be available at:
+- Frontend Dashboard: http://localhost:3000
+- Telemetry API: http://localhost:8083
+- Compliance API: http://localhost:8080
+- Simulator API: http://localhost:8082
+- Alerts API: http://localhost:8081
+
+### 3. Verify Health
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8081/health
+curl http://localhost:8082/health
+curl http://localhost:8083/health
+```
+
+### 4. Run Tests
+```bash
+# Backend tests (inside telemetry container)
+docker-compose exec telemetry pytest
+
+# Frontend tests
+npm test
+
+# E2E tests
+npm run test:e2e
+```
+
+---
+
+## 📁 Project Structure
+
+```
+esg-software/
+├── docker-compose.yml          # Service orchestration
+├── docker-compose.sh           # Convenience startup script
+├── .env.example                # Environment template
+├── services/
+│   ├── telemetry/              # Ingestion & validation (Port 8083)
+│   │   ├── src/
+│   │   │   ├── app.py          # Flask application
+│   │   │   ├── calculations/   # Carbon, water, efficiency, hardware
+│   │   │   ├── emission_factors.py
+│   │   │   ├── audit.py        # JSONL audit logging
+│   │   │   └── lineage.py      # Data provenance tracking
+│   │   └── Dockerfile
+│   ├── compliance/             # GHG calculations (Port 8080)
+│   ├── simulator/              # Projections (Port 8082)
+│   ├── alerts/                 # Monitoring (Port 8081)
+│   └── frontend/               # Next.js dashboard (Port 3000)
+├── tests/                      # Test suites
+├── kubernetes/                 # K8s deployment manifests
+├── terraform/                  # Infrastructure-as-code
+└── docs/                       # Additional documentation
+```
+
+---
+
+## 📜 API Documentation
+
+### Telemetry Ingestion Endpoint
+```http
+POST /api/v1/telemetry
+Content-Type: application/json
+
+{
+  "source_id": "datacenter-sfo-01",
+  "external_event_id": "gpu-batch-2024-001",
+  "vertical": "ai_data_center",
+  "timestamp": "2024-03-15T14:30:00Z",
+  "metrics": {
+    "energy_kwh": 1250.5,
+    "gpu_hours": 480,
+    "water_liters": 3200,
+    "pue": 1.15
+  },
+  "tags": {"region": "us-west-1", "facility": "SFO-DC01"}
+}
+```
+
+### Compliance Report Generation
+```http
+POST /api/v1/reports/ghg
+Content-Type: application/json
+
+{
+  "scope": [1, 2, 3],
+  "date_range": {"start": "2024-01-01", "end": "2024-12-31"},
+  "format": "json"
+}
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Run tests (`pytest` and `npm test`)
+4. Submit a Pull Request
+
+Please ensure:
+- All Python code passes `flake8` and `black` formatting
+- All JavaScript passes ESLint
+- New features include corresponding tests
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](./LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Built for enterprises serious about sustainability.**
+
+[Documentation](docs/) • [API Reference](docs/api.md) • [Changelog](CHANGELOG.md)
+
+</div>
