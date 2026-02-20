@@ -1,10 +1,10 @@
 """
-Water calculations: withdrawal, consumed, reclaimed %, WUE, water per GPU-hour, per training run,
+Water calculations: withdrawal, consumed, reclaimed %, WUE, water per workload unit,
 cooling tower (evaporation, blowdown), regional water stress weighting.
 """
 from __future__ import annotations
 
-from ..units import normalize_water, seconds_to_gpu_hours
+from ..units import normalize_water
 
 # Regional water stress multipliers (higher = more stressed; multiply water intensity for reporting)
 WATER_STRESS_WEIGHTS: dict[str, float] = {
@@ -58,18 +58,18 @@ def wue(total_cooling_water_liters: float, it_energy_kwh: float) -> float:
     return round(float(total_cooling_water_liters) / float(it_energy_kwh), 6)
 
 
-def water_per_gpu_hour(total_water_liters: float, gpu_hours: float) -> float:
-    """Liters per GPU-hour. If gpu_hours <= 0, return 0."""
-    if gpu_hours is None or gpu_hours <= 0:
+def water_per_workload_unit(total_water_liters: float, workload_hours: float) -> float:
+    """Liters per workload-hour (e.g., GPU-hour, machine-hour). If workload_hours <= 0, return 0."""
+    if workload_hours is None or workload_hours <= 0:
         return 0.0
-    return round(float(total_water_liters) / float(gpu_hours), 6)
+    return round(float(total_water_liters) / float(workload_hours), 6)
 
 
-def water_per_training_run(total_water_liters: float, training_runs: int) -> float:
-    """Liters per training run. If runs <= 0, return 0."""
-    if not training_runs or training_runs <= 0:
+def water_per_production_unit(total_water_liters: float, production_units: int) -> float:
+    """Liters per production unit (e.g., per mile, per item manufactured, per request)."""
+    if not production_units or production_units <= 0:
         return 0.0
-    return round(float(total_water_liters) / training_runs, 6)
+    return round(float(total_water_liters) / production_units, 6)
 
 
 def cooling_tower_metrics(

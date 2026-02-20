@@ -110,7 +110,7 @@ All error responses use this shape:
 
 **Endpoint:** `POST /api/telemetry/ingest`
 
-**Purpose:** Ingest AI data center sustainability telemetry: carbon, water, energy, compute, hardware, and data-quality metrics. Supports compute-normalized metrics (e.g. CO₂ per GPU-hour, water per training run), versioned emission factors, and full data lineage.
+**Purpose:** Ingest universal sustainability telemetry: carbon, water, energy, compute, hardware, and data-quality metrics. Supports workload-normalized metrics (e.g. CO₂ per workload-hour, water per production unit), versioned emission factors, and full data lineage.
 
 **Request body:** JSON with strict schema. Required: `timestamp`. At least one of: `energy`, `carbon`, `water`, `compute`, `hardware`, `data_quality`.
 
@@ -132,6 +132,8 @@ Example minimal:
   }
 }
 ```
+
+_Note: `gpu_hours` and `gpu_count` are legacy field names that now represent workload-hours and asset count for any industry vertical._
 
 Optional fields: `asset_id`, `region`, `source_id`, `external_event_id` (for idempotency), `emission_factor_version`, and full blocks for `carbon`, `water`, `hardware`, `data_quality`. See service schema for all fields and units.
 
@@ -194,7 +196,7 @@ Optional fields: `asset_id`, `region`, `source_id`, `external_event_id` (for ide
 | IoT (energy/water/emissions sensors) | `POST /api/telemetry/ingest` or `POST /api/alerts/process-telemetry` | Sustainability: use `/api/telemetry/ingest` with energy/water/compute blocks. Legacy CO₂/temp: `process-telemetry`. |
 | API feeds (utility, fleet, ERP) | `POST /api/telemetry/ingest` | Normalize to telemetry schema; use `X-Ingestion-Source`. |
 | Manual entries (facility logs, disclosures) | `POST /api/compliance/validate` | Use with appropriate API key; extend body schema for structured metadata as needed. |
-| Derived metrics (Scope 1/2/3, intensity) | `POST /api/simulator/simulate` or `POST /api/telemetry/ingest` | Simulator for projections; telemetry for raw + derived (carbon per GPU-hour, etc.). |
+| Derived metrics (Scope 1/2/3, intensity) | `POST /api/simulator/simulate` or `POST /api/telemetry/ingest` | Simulator for projections; telemetry for raw + derived (carbon per workload-hour, etc.). |
 | Event-driven alerts | Result of telemetry/alerts ingestion | Alerts service (CO₂/temp); telemetry service (carbon, water, PUE, drift). |
 
 ---

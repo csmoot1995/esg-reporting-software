@@ -1,5 +1,5 @@
 /**
- * Mock JSON payloads for testing ingestion across verticals and AI data center types.
+ * Mock JSON payloads for testing ESG telemetry ingestion across all industry verticals.
  * Each mock is valid per schema and exercises different blocks/features.
  */
 
@@ -8,10 +8,10 @@ const uniqueId = () => `mock-${Date.now()}-${Math.random().toString(36).slice(2,
 
 export const SUSTAINABILITY_MOCKS = [
   {
-    id: 'ai-training-full',
-    name: 'AI Training Data Center',
-    description: 'Full stack: energy, carbon, water, compute (training), hardware, data quality. Use for GPU training facilities.',
-    vertical: 'AI Training',
+    id: 'data-center-full',
+    name: 'Data Center (Full Stack)',
+    description: 'Full stack: energy, carbon, water, compute, hardware, data quality. Use for data center facilities with PUE tracking.',
+    vertical: 'Data Center',
     payload: () => ({
       timestamp: now(),
       asset_id: 'DC1-TRAIN-A01',
@@ -65,13 +65,86 @@ export const SUSTAINABILITY_MOCKS = [
     }),
   },
   {
-    id: 'ai-inference-serving',
-    name: 'AI Inference / Serving',
-    description: 'Energy + compute (inference requests). Use for inference-only or serving clusters.',
-    vertical: 'AI Inference',
+    id: 'logistics-fleet',
+    name: 'Logistics / Fleet',
+    description: 'Energy + vehicle metrics. Use for fleet management and route-based emissions tracking.',
+    vertical: 'Logistics',
     payload: () => ({
       timestamp: now(),
-      asset_id: 'DC2-INFER-B02',
+      asset_id: 'FLEET-001',
+      region: 'us-east-1',
+      source_id: 'fleet-tracker',
+      external_event_id: uniqueId(),
+      emission_factor_version: 'v1',
+      energy: {
+        facility_kwh: 500.0,
+        it_kwh: 0,
+        generator_fuel_liters: 120.0,
+        generator_fuel_type: 'diesel',
+        energy_unit: 'kWh',
+      },
+      carbon: {
+        scope1_kg_co2e: 315.6,
+        scope2_location_kg_co2e: 0,
+        grid_carbon_intensity_kg_per_kwh: 0.0,
+        carbon_unit: 'kg_co2e',
+      },
+      workload_value: 850,
+      workload_unit: 'vehicle_mile',
+      hardware: {
+        utilization_pct: 75.0,
+        idle_rate_pct: 25.0,
+        asset_state: 'in_transit',
+      },
+    }),
+  },
+  {
+    id: 'manufacturing-production',
+    name: 'Smart Manufacturing',
+    description: 'Energy + production metrics. Use for factory floors with production unit tracking.',
+    vertical: 'Manufacturing',
+    payload: () => ({
+      timestamp: now(),
+      asset_id: 'FACTORY-LINE-A',
+      region: 'us-midwest',
+      source_id: 'scada-gateway',
+      external_event_id: uniqueId(),
+      emission_factor_version: 'v1',
+      energy: {
+        facility_kwh: 8500.0,
+        it_kwh: 1200.0,
+        cooling_kwh: 800.0,
+        energy_unit: 'kWh',
+      },
+      carbon: {
+        scope1_kg_co2e: 0,
+        scope2_location_kg_co2e: 5100.0,
+        grid_carbon_intensity_kg_per_kwh: 0.45,
+        carbon_unit: 'kg_co2e',
+      },
+      water: {
+        withdrawal_liters: 50000.0,
+        returned_liters: 45000.0,
+        consumed_liters: 5000.0,
+        water_unit: 'liters',
+      },
+      workload_value: 1200,
+      workload_unit: 'production_unit',
+      hardware: {
+        utilization_pct: 82.0,
+        idle_rate_pct: 18.0,
+        asset_state: 'active',
+      },
+    }),
+  },
+  {
+    id: 'cloud-saas',
+    name: 'Cloud SaaS / API',
+    description: 'Energy + compute (API requests). Use for API-based carbon attribution.',
+    vertical: 'Cloud SaaS',
+    payload: () => ({
+      timestamp: now(),
+      asset_id: 'API-CLUSTER-B02',
       region: 'eu-west-1',
       source_id: 'mock-gateway',
       external_event_id: uniqueId(),

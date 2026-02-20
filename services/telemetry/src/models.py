@@ -33,14 +33,14 @@ class TelemetryPoint:
 
 @dataclass
 class CarbonMetric(TelemetryPoint):
-    """Carbon-related metric (scope 1/2, per GPU-hour, per run, etc.)."""
+    """Carbon-related metric (scope 1/2, per workload-hour, per unit, etc.)."""
     scope: str | None = None  # "scope1", "scope2_location", "scope2_market", etc.
     emission_factor_version: str = ""
 
 
 @dataclass
 class WaterMetric(TelemetryPoint):
-    """Water metric (withdrawal, consumed, WUE, per GPU-hour, etc.)."""
+    """Water metric (withdrawal, consumed, WUE, per workload-hour, etc.)."""
     pass
 
 

@@ -38,13 +38,13 @@ class WaterBlock(BaseModel):
 
 
 class ComputeBlock(BaseModel):
-    """Compute workload for normalization (GPU-hours, runs, inference)."""
-    gpu_hours: Optional[float] = Field(None, ge=0)
-    gpu_count: Optional[float] = Field(None, ge=0)
+    """Compute/workload metrics for normalization (workload-hours, runs, requests)."""
+    gpu_hours: Optional[float] = Field(None, ge=0, description="Deprecated: use workload_value")
+    gpu_count: Optional[float] = Field(None, ge=0, description="Deprecated: use workload_unit semantics")
     run_duration_seconds: Optional[float] = Field(None, ge=0)
     run_type: Optional[str] = None
-    training_runs: Optional[int] = Field(None, ge=0)
-    inference_requests: Optional[int] = Field(None, ge=0)
+    training_runs: Optional[int] = Field(None, ge=0, description="Generic production unit count")
+    inference_requests: Optional[int] = Field(None, ge=0, description="Generic request/event count")
 
 
 class HardwareBlock(BaseModel):

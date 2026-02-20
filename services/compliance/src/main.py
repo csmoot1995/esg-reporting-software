@@ -61,8 +61,35 @@ def validate_report():
         print(get_json_log("Unauthorized access attempt", "WARN"))
         return error_response("UNAUTHORIZED", "Missing or invalid X-API-KEY", 403)
 
-    print(get_json_log(f"Validation request processed by {role}", "INFO", role=role))
-    resp = jsonify({"status": "compliant", "validated_by": role})
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return error_response("VALIDATION_ERROR", "JSON body must be an object", 400)
+
+    mediation_findings = []
+    declared = body.get("mediation") if isinstance(body, dict) else None
+    if isinstance(declared, dict):
+        for f in (declared.get("findings") or []):
+            if isinstance(f, dict) and f.get("practice") and f.get("status"):
+                mediation_findings.append(f)
+
+    def _overall_status(findings: list[dict]) -> str:
+        if any(f.get("status") == "FAIL" for f in findings):
+            return "FAIL"
+        if any(f.get("status") == "WARN" for f in findings):
+            return "WARN"
+        return "OK"
+
+    mediation_overall = _overall_status(mediation_findings)
+
+    print(get_json_log(f"Validation request processed by {role}", "INFO", role=role, mediation_health=mediation_overall))
+    resp = jsonify({
+        "status": "compliant",
+        "validated_by": role,
+        "mediation": {
+            "health_status": mediation_overall,
+            "findings": mediation_findings,
+        }
+    })
     req_id = request.headers.get("X-Request-ID")
     if req_id:
         resp.headers["X-Request-ID"] = req_id

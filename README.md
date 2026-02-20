@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**Sustainability-as-Code Framework** — Mission-critical environmental telemetry for the modern enterprise.
+**Sustainability-as-Code Framework** — Mission-critical environmental telemetry for any industry vertical.
 
 [![Docker](https://img.shields.io/badge/Docker-Compatible-blue?logo=docker)](https://www.docker.com/)
 [![Python](https://img.shields.io/badge/Python-3.11+-yellow?logo=python)](https://www.python.org/)
@@ -16,14 +16,15 @@
 
 ## 📋 High-Level Overview
 
-This is not just an application. It is a **Sustainability-as-Code framework** that treats carbon and water data with the same mission-critical rigor as system logs.
+This is not just an application. It is a **Sustainability-as-Code framework** that treats carbon, water, and energy data with the same mission-critical rigor as system logs.
 
-**Universal Ingestion** is our core architectural principle: a unified pipeline capable of ingesting environmental telemetry from any source, transforming it into standardized metrics, and delivering auditable reports for regulatory compliance. The platform provides seamless integration across four distinct verticals:
+**Universal Ingestion** is our core architectural principle: a unified pipeline capable of ingesting environmental telemetry from any source, transforming it into standardized metrics, and delivering auditable reports for regulatory compliance. The platform provides seamless integration across all industry verticals:
 
-- **AI Data Centers**: GPU-intensive workloads, PUE optimization, water consumption tracking
+- **Data Centers & IT**: PUE optimization, server energy tracking, cooling efficiency
 - **Logistics & Fleet**: Vehicle emissions, route optimization, carbon-per-mile analytics
 - **Smart Manufacturing**: Production-line energy, industrial IoT sensors, process efficiency
 - **Cloud SaaS**: API request carbon attribution, multi-tenant cost/impact allocation
+- **Commercial Buildings**: HVAC efficiency, lighting systems, occupancy-based energy
 
 By unifying these verticals under a single schema, organizations eliminate data silos and gain cross-functional visibility into their environmental footprint.
 
@@ -108,10 +109,11 @@ The platform automatically adapts measurement units, emission factors, and repor
 
 | **Vertical** | **Primary Functional Unit** | **Core KPI** | **Key Metrics Tracked** |
 |:-------------|:----------------------------|:-------------|:------------------------|
-| **AI Data Center** | GPU-Hour | **PUE** (Power Usage Effectiveness) | Energy (kWh), Water (L), GPU Utilization%, Carbon per GPU-hr |
+| **Data Centers & IT** | Server-Hour | **PUE** (Power Usage Effectiveness) | Energy (kWh), Water (L), Server Utilization%, Carbon per workload-hr |
 | **Logistics / Fleet** | Vehicle Mile | **Carbon-per-Mile** (gCO₂/mi) | Fuel (L), Distance (km/mi), Vehicle Class, Route Efficiency |
 | **Smart Manufacturing** | Production Unit | **Carbon-per-Unit** (kgCO₂/unit) | Electricity (MWh), Process Heat, Raw Material Mass, Waste % |
 | **Cloud SaaS** | API Request | **Carbon-per-Request** (mgCO₂/req) | Compute Time (ms), Data Transfer (GB), Region Carbon Intensity |
+| **Commercial Buildings** | Occupant-Day | **Energy Use Intensity** (kWh/m²/yr) | HVAC Energy, Lighting, Water Consumption, Indoor Air Quality |
 
 ---
 
@@ -148,10 +150,17 @@ Full traceability from raw sensor → normalized record → emission calculation
 The composite **Sustainability Score** $S$ aggregates efficiency metrics across all verticals:
 
 $$
-S = \underbrace{w_{1} \cdot \frac{1}{\text{PUE}_{\text{norm}} - 1}}_{\text{Data Center Efficiency}} + \underbrace{w_{2} \cdot \frac{1}{\text{Carbon}_{\text{mile}}}}_{\text{Logistics Efficiency}} + \underbrace{w_{3} \cdot \frac{\text{Production}}{\text{Energy} \cdot \text{Factor}_{\text{grid}}}}_{\text{Manufacturing Yield}} + \underbrace{w_{4} \cdot \frac{\text{Requests}}{\text{Carbon}_{\text{req}} \cdot 10^{6}}}_{\text{SaaS Density}}
+S = \underbrace{w_{1} \cdot \frac{1}{\text{E}_{\text{norm}} - 1}}_{\text{Energy Efficiency}} + \underbrace{w_{2} \cdot \frac{1}{\text{Carbon}_{\text{mile}}}}_{\text{Logistics Efficiency}} + \underbrace{w_{3} \cdot \frac{\text{Production}}{\text{Energy} \cdot \text{Factor}_{\text{grid}}}}_{\text{Manufacturing Yield}} + \underbrace{w_{4} \cdot \frac{\text{Requests}}{\text{Carbon}_{\text{req}} \cdot 10^{6}}}_{\text{SaaS Density}}
 $$
 
 Where weights $w_{1..4}$ are normalized to $\sum w_{i} = 1$ based on organizational prioritization.
+
+For each vertical, the efficiency ratio $E$ is mapped to an appropriate industry standard:
+- **Data Centers**: PUE (Power Usage Effectiveness)
+- **Logistics**: Carbon per vehicle-mile
+- **Manufacturing**: Carbon per production unit
+- **Cloud SaaS**: Carbon per API request
+- **Commercial Buildings**: EUI (Energy Use Intensity)
 
 ---
 
@@ -196,6 +205,18 @@ Services will be available at:
 - Simulator API: http://localhost:8082
 - Alerts API: http://localhost:8081
 
+### 2a. Reset / Clear Telemetry Ingestion State
+
+If you need to re-run an ingest test (or you hit duplicate ingestion because the same `(source_id, external_event_id)` was previously stored), the telemetry service exposes a reset endpoint:
+
+```bash
+# Clear in-memory batch connection/buffers (does not delete stored rows)
+curl -X POST http://localhost:8083/reset -H 'Content-Type: application/json' -d '{}'
+
+# Full wipe of telemetry raw + computed metric rows
+curl -X POST http://localhost:8083/reset -H 'Content-Type: application/json' -d '{"clear_tables": true}'
+```
+
 ### 3. Verify Health
 ```bash
 curl http://localhost:8080/health
@@ -215,6 +236,15 @@ npm test
 # E2E tests
 npm run test:e2e
 ```
+
+## Local Development (Frontend)
+
+This repo contains two separate frontends:
+
+- Webpack demo UI (root): runs on http://localhost:9000 via `npm run dev`
+- Full React dashboard (Vite): runs on http://localhost:5173 via `npm run dev` in `frontend/`
+
+If you only see the simple page on :9000, start the full React app from the `frontend/` folder.
 
 ---
 
@@ -250,21 +280,36 @@ esg-software/
 
 ### Telemetry Ingestion Endpoint
 ```http
-POST /api/v1/telemetry
+POST /ingest
 Content-Type: application/json
 
 {
-  "source_id": "datacenter-sfo-01",
-  "external_event_id": "gpu-batch-2024-001",
-  "vertical": "ai_data_center",
   "timestamp": "2024-03-15T14:30:00Z",
-  "metrics": {
-    "energy_kwh": 1250.5,
-    "gpu_hours": 480,
-    "water_liters": 3200,
-    "pue": 1.15
+  "asset_id": "factory-line-01",
+  "region": "us-midwest",
+  "source_id": "scada-gateway",
+  "external_event_id": "production-batch-2024-001",
+  "emission_factor_version": "v1",
+  "industry_vertical": "manufacturing",
+  "energy": {
+    "facility_kwh": 8500.0,
+    "it_kwh": 1200.0,
+    "cooling_kwh": 800.0
   },
-  "tags": {"region": "us-west-1", "facility": "SFO-DC01"}
+  "carbon": {
+    "scope1_kg_co2e": 0,
+    "scope2_location_kg_co2e": 5100.0,
+    "grid_carbon_intensity_kg_per_kwh": 0.45
+  },
+  "water": {
+    "withdrawal_liters": 50000.0,
+    "consumed_liters": 5000.0
+  },
+  "workload_value": 1200,
+  "workload_unit": "production_unit",
+  "hardware": {
+    "utilization_pct": 82.0
+  }
 }
 ```
 

@@ -38,6 +38,27 @@ def _conn() -> sqlite3.Connection:
     return conn
 
 
+# Connection pool for batch operations
+_conn_cache: sqlite3.Connection | None = None
+
+
+def _get_cached_conn() -> sqlite3.Connection:
+    """Get a cached connection for batch operations. Must be closed with _close_cached_conn()."""
+    global _conn_cache
+    if _conn_cache is None:
+        _conn_cache = _conn()
+        init_schema(_conn_cache)
+    return _conn_cache
+
+
+def _close_cached_conn() -> None:
+    """Close the cached connection."""
+    global _conn_cache
+    if _conn_cache is not None:
+        _conn_cache.close()
+        _conn_cache = None
+
+
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS telemetry_raw (
@@ -126,6 +147,21 @@ def init_schema(conn: sqlite3.Connection) -> None:
             FOREIGN KEY (raw_payload_id) REFERENCES telemetry_raw(id)
         );
         CREATE INDEX IF NOT EXISTS idx_dq_ts ON metrics_data_quality(timestamp_utc);
+
+        CREATE TABLE IF NOT EXISTS metrics_mediation (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            metric_type TEXT NOT NULL,
+            value REAL,
+            unit TEXT,
+            asset_id TEXT,
+            region TEXT,
+            timestamp_utc TEXT NOT NULL,
+            raw_payload_id INTEGER,
+            lineage_json TEXT,
+            details_json TEXT,
+            FOREIGN KEY (raw_payload_id) REFERENCES telemetry_raw(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_mediation_ts ON metrics_mediation(timestamp_utc);
 
         CREATE TABLE IF NOT EXISTS assets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -281,7 +317,164 @@ def insert_data_quality(metric_type: str, value: float, unit: str, asset_id: str
         conn.close()
 
 
-_ALLOWED_METRIC_TABLES = ("metrics_carbon", "metrics_water", "metrics_efficiency", "metrics_hardware", "metrics_data_quality")
+def insert_mediation(metric_type: str, value: float | None, unit: str | None, asset_id: str | None, region: str | None, timestamp_utc: str, raw_payload_id: int | None, lineage: dict | None, details: dict | None) -> int:
+    conn = _conn()
+    try:
+        init_schema(conn)
+        cur = conn.execute(
+            """INSERT INTO metrics_mediation (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage_json, details_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, json.dumps(lineage) if lineage else None, json.dumps(details) if details else None),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+_ALLOWED_METRIC_TABLES = ("metrics_carbon", "metrics_water", "metrics_efficiency", "metrics_hardware", "metrics_data_quality", "metrics_mediation")
+
+
+# Batch insert buffers for efficient writes
+_batch_buffers: dict[str, list[tuple]] = {}
+
+
+def begin_batch() -> None:
+    """Start a batch operation. Initializes cached connection and clears buffers."""
+    global _batch_buffers
+    _batch_buffers = {
+        "metrics_carbon": [],
+        "metrics_water": [],
+        "metrics_efficiency": [],
+        "metrics_hardware": [],
+        "metrics_data_quality": [],
+        "metrics_mediation": [],
+    }
+    _get_cached_conn()
+
+
+def commit_batch() -> None:
+    """Commit all buffered batch inserts in a single transaction."""
+    global _batch_buffers
+    if not _batch_buffers:
+        return
+    conn = _get_cached_conn()
+    try:
+        for table, rows in _batch_buffers.items():
+            if not rows:
+                continue
+            if table == "metrics_carbon":
+                conn.executemany(
+                    """INSERT INTO metrics_carbon (metric_type, value, unit, asset_id, region, scope, emission_factor_version, timestamp_utc, raw_payload_id, lineage_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    rows
+                )
+            elif table == "metrics_water":
+                conn.executemany(
+                    """INSERT INTO metrics_water (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    rows
+                )
+            elif table == "metrics_efficiency":
+                conn.executemany(
+                    """INSERT INTO metrics_efficiency (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    rows
+                )
+            elif table == "metrics_hardware":
+                conn.executemany(
+                    """INSERT INTO metrics_hardware (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    rows
+                )
+            elif table == "metrics_data_quality":
+                conn.executemany(
+                    """INSERT INTO metrics_data_quality (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    rows
+                )
+            elif table == "metrics_mediation":
+                conn.executemany(
+                    """INSERT INTO metrics_mediation (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage_json, details_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    rows
+                )
+        conn.commit()
+    finally:
+        _batch_buffers.clear()
+
+
+def batch_insert_carbon(metric_type: str, value: float, unit: str, asset_id: str | None, region: str | None, scope: str | None, emission_factor_version: str, timestamp_utc: str, raw_payload_id: int | None, lineage: dict | None) -> None:
+    """Queue a carbon metric for batch insert. Call commit_batch() to persist."""
+    global _batch_buffers
+    if "metrics_carbon" in _batch_buffers:
+        _batch_buffers["metrics_carbon"].append(
+            (metric_type, value, unit, asset_id, region, scope, emission_factor_version, timestamp_utc, raw_payload_id, json.dumps(lineage) if lineage else None)
+        )
+    else:
+        # Fallback to single insert if not in batch mode
+        insert_carbon(metric_type, value, unit, asset_id, region, scope, emission_factor_version, timestamp_utc, raw_payload_id, lineage)
+
+
+def batch_insert_water(metric_type: str, value: float, unit: str, asset_id: str | None, region: str | None, timestamp_utc: str, raw_payload_id: int | None, lineage: dict | None) -> None:
+    """Queue a water metric for batch insert. Call commit_batch() to persist."""
+    global _batch_buffers
+    if "metrics_water" in _batch_buffers:
+        _batch_buffers["metrics_water"].append(
+            (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, json.dumps(lineage) if lineage else None)
+        )
+    else:
+        insert_water(metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage)
+
+
+def batch_insert_efficiency(metric_type: str, value: float, unit: str, asset_id: str | None, region: str | None, timestamp_utc: str, raw_payload_id: int | None, lineage: dict | None) -> None:
+    """Queue an efficiency metric for batch insert. Call commit_batch() to persist."""
+    global _batch_buffers
+    if "metrics_efficiency" in _batch_buffers:
+        _batch_buffers["metrics_efficiency"].append(
+            (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, json.dumps(lineage) if lineage else None)
+        )
+    else:
+        insert_efficiency(metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage)
+
+
+def batch_insert_hardware(metric_type: str, value: float, unit: str, asset_id: str | None, region: str | None, timestamp_utc: str, raw_payload_id: int | None, lineage: dict | None) -> None:
+    """Queue a hardware metric for batch insert. Call commit_batch() to persist."""
+    global _batch_buffers
+    if "metrics_hardware" in _batch_buffers:
+        _batch_buffers["metrics_hardware"].append(
+            (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, json.dumps(lineage) if lineage else None)
+        )
+    else:
+        insert_hardware(metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage)
+
+
+def batch_insert_data_quality(metric_type: str, value: float, unit: str, asset_id: str | None, region: str | None, timestamp_utc: str, raw_payload_id: int | None, lineage: dict | None) -> None:
+    """Queue a data quality metric for batch insert. Call commit_batch() to persist."""
+    global _batch_buffers
+    if "metrics_data_quality" in _batch_buffers:
+        _batch_buffers["metrics_data_quality"].append(
+            (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, json.dumps(lineage) if lineage else None)
+        )
+    else:
+        insert_data_quality(metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage)
+
+
+def batch_insert_mediation(metric_type: str, value: float | None, unit: str | None, asset_id: str | None, region: str | None, timestamp_utc: str, raw_payload_id: int | None, lineage: dict | None, details: dict | None) -> None:
+    """Queue a mediation metric/finding for batch insert. Call commit_batch() to persist."""
+    global _batch_buffers
+    if "metrics_mediation" in _batch_buffers:
+        _batch_buffers["metrics_mediation"].append(
+            (metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, json.dumps(lineage) if lineage else None, json.dumps(details) if details else None)
+        )
+    else:
+        insert_mediation(metric_type, value, unit, asset_id, region, timestamp_utc, raw_payload_id, lineage, details)
+
+
+def end_batch() -> None:
+    """End batch operation and close cached connection."""
+    _batch_buffers.clear()
+    _close_cached_conn()
 
 
 def get_lineage_for_metric(table: str, metric_id: int) -> dict | None:
@@ -307,5 +500,34 @@ def get_raw_payload(raw_id: int) -> dict | None:
         if not row:
             return None
         return json.loads(row[0])
+    finally:
+        conn.close()
+
+
+def reset_storage(*, clear_tables: bool = False) -> dict[str, Any]:
+    """Reset telemetry storage state.
+
+    - Always closes the cached batch connection (if open)
+    - Optionally clears telemetry tables (raw + metrics)
+    """
+    _close_cached_conn()
+    global _batch_buffers
+    _batch_buffers.clear()
+
+    if not clear_tables:
+        return {"cleared_tables": False}
+
+    conn = _conn()
+    try:
+        init_schema(conn)
+        conn.execute("DELETE FROM metrics_carbon")
+        conn.execute("DELETE FROM metrics_water")
+        conn.execute("DELETE FROM metrics_efficiency")
+        conn.execute("DELETE FROM metrics_hardware")
+        conn.execute("DELETE FROM metrics_data_quality")
+        conn.execute("DELETE FROM metrics_mediation")
+        conn.execute("DELETE FROM telemetry_raw")
+        conn.commit()
+        return {"cleared_tables": True}
     finally:
         conn.close()

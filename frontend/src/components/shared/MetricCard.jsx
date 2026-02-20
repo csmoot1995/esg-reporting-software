@@ -1,4 +1,4 @@
-export default function MetricCard({ title, value, unit, subtitle, trend, critical, icon, onClick, className = '' }) {
+export default function MetricCard({ title, value, unit, subtitle, trend, critical, icon, onClick, className = '', expandable = false, expanded = false, children }) {
   const displayValue = value != null ? (typeof value === 'number' ? value.toFixed(2) : value) : 'N/A';
   
   return (
@@ -25,6 +25,12 @@ export default function MetricCard({ title, value, unit, subtitle, trend, critic
       {trend != null && (
         <div className={`text-xs mt-1 ${trend > 0 ? 'text-esg-alert' : 'text-esg-success'}`}>
           {trend > 0 ? '↑' : '↓'} {Math.abs(trend).toFixed(1)}%
+        </div>
+      )}
+
+      {expandable && expanded && children && (
+        <div className="mt-3 pt-3 border-t border-esg-mint/30">
+          {children}
         </div>
       )}
     </div>

@@ -10,6 +10,20 @@ import { SUSTAINABILITY_MOCKS, LEGACY_MOCKS, getMockPayloadJson } from '../../mo
 const CUSTOM_MOCKS_STORAGE_KEY = 'esg-ingestion-custom-mocks';
 const ACTIVE_TAB_STORAGE_KEY = 'esg-telemetry-active-tab';
 
+function hoursBetween(a, b) {
+  if (!a || !b) return null;
+  const ms = Math.abs(b.getTime() - a.getTime());
+  return ms / (1000 * 60 * 60);
+}
+
+function formatAge(ageHours) {
+  if (ageHours == null) return 'N/A';
+  if (ageHours < 1) return `${Math.round(ageHours * 60)}m`;
+  if (ageHours < 48) return `${ageHours.toFixed(1)}h`;
+  const days = ageHours / 24;
+  return `${days.toFixed(1)}d`;
+}
+
 // Utility: Format metric names for display
 function formatMetricName(metricType) {
   return metricType
@@ -62,6 +76,12 @@ function MetricSection({ title, metrics, emptyMessage = 'No metrics available', 
 
 // Dashboard Tab Component
 function DashboardTab({ metricsQuery }) {
+  const [expandedCards, setExpandedCards] = useState({});
+
+  const toggleCard = (key) => {
+    setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const { carbonMetrics, waterMetrics, efficiencyMetrics, hardwareMetrics, dataQualityMetrics, summaryStats } =
     useMemo(() => {
       const data = metricsQuery.data || {};
@@ -71,6 +91,7 @@ function DashboardTab({ metricsQuery }) {
         efficiencyMetrics: data.efficiency || [],
         hardwareMetrics: data.hardware || [],
         dataQualityMetrics: data.data_quality || [],
+        mediationMetrics: data.mediation || [],
         summaryStats: {
           totalCarbon: data.carbon?.reduce((sum, m) => sum + (m.value || 0), 0) || 0,
           totalWater: data.water?.reduce((sum, m) => sum + (m.value || 0), 0) || 0,
@@ -82,6 +103,13 @@ function DashboardTab({ metricsQuery }) {
       };
     }, [metricsQuery.data]);
 
+  const mediationOverall = useMemo(() => {
+    const data = metricsQuery.data || {};
+    const arr = data.mediation || [];
+    const overall = arr.find((m) => m.metric_type === 'mediation_overall_health');
+    return overall?.details || null;
+  }, [metricsQuery.data]);
+
   const latestTimestamp = useMemo(() => {
     const allMetrics = [...carbonMetrics, ...waterMetrics, ...efficiencyMetrics, ...hardwareMetrics, ...dataQualityMetrics];
     if (allMetrics.length === 0) return null;
@@ -89,6 +117,45 @@ function DashboardTab({ metricsQuery }) {
     if (timestamps.length === 0) return null;
     return new Date(Math.max(...timestamps.map((t) => new Date(t).getTime())));
   }, [carbonMetrics, waterMetrics, efficiencyMetrics, hardwareMetrics, dataQualityMetrics]);
+
+  const complianceInsights = useMemo(() => {
+    const requiredDomains = [
+      { key: 'carbon', label: 'Carbon', has: carbonMetrics.length > 0 },
+      { key: 'water', label: 'Water', has: waterMetrics.length > 0 },
+      { key: 'efficiency', label: 'Efficiency (PUE/WUE)', has: efficiencyMetrics.length > 0 },
+      { key: 'hardware', label: 'Hardware', has: hardwareMetrics.length > 0 },
+      { key: 'data_quality', label: 'Data quality', has: dataQualityMetrics.length > 0 },
+    ];
+
+    const presentCount = requiredDomains.filter((d) => d.has).length;
+    const coveragePct = Math.round((presentCount / requiredDomains.length) * 100);
+    const missing = requiredDomains.filter((d) => !d.has).map((d) => d.label);
+
+    const now = new Date();
+    const ageHours = latestTimestamp ? hoursBetween(latestTimestamp, now) : null;
+    const stale = ageHours != null ? ageHours > 24 : true;
+    const veryStale = ageHours != null ? ageHours > 72 : true;
+
+    const blockers = [];
+    if (missing.length > 0) blockers.push(`Missing telemetry domains: ${missing.join(', ')}`);
+    if (veryStale) blockers.push('Telemetry is older than 72 hours');
+    if (summaryStats.avgPUE != null && summaryStats.avgPUE > 2.0) blockers.push(`High PUE (${summaryStats.avgPUE.toFixed(2)})`);
+    if (summaryStats.avgUtilization != null && summaryStats.avgUtilization < 30) blockers.push(`Low utilization (${summaryStats.avgUtilization.toFixed(1)}%)`);
+
+    const nextActions = [];
+    if (missing.length > 0) nextActions.push('Ingest missing telemetry domains');
+    if (stale) nextActions.push('Ingest fresh data (last update > 24h)');
+    nextActions.push('Upload and validate a report');
+
+    return {
+      coveragePct,
+      missing,
+      ageHours,
+      stale,
+      blockers,
+      nextActions,
+    };
+  }, [carbonMetrics.length, waterMetrics.length, efficiencyMetrics.length, hardwareMetrics.length, dataQualityMetrics.length, latestTimestamp, summaryStats.avgPUE, summaryStats.avgUtilization]);
 
   // Critical checks for metrics
   const isCritical = (metric) =>
@@ -102,6 +169,139 @@ function DashboardTab({ metricsQuery }) {
 
   return (
     <div className="space-y-8">
+      {/* Compliance Insights */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-display font-semibold text-esg-forest">Compliance Insights</h3>
+            <p className="text-sm text-esg-sage/80 mt-1">Signals that help you prepare data for report validation.</p>
+          </div>
+          <Link to="/compliance" className="text-sm text-esg-sage hover:underline font-medium">
+            Go to compliance →
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            title="Data freshness"
+            value={formatAge(complianceInsights.ageHours)}
+            unit=""
+            subtitle={latestTimestamp ? `Last update: ${latestTimestamp.toLocaleString()}` : 'No telemetry timestamps found'}
+            critical={complianceInsights.stale}
+            expandable
+            expanded={!!expandedCards.freshness}
+            onClick={() => toggleCard('freshness')}
+          >
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-esg-sage/70">Threshold</span>
+                <span className="text-esg-forest">24h</span>
+              </div>
+              <div className="text-esg-sage/70">
+                Fresh telemetry helps validation and reduces manual follow-up.
+              </div>
+              <div>
+                <Link to="/telemetry" className="text-esg-sage hover:underline font-medium">
+                  Ingest now →
+                </Link>
+              </div>
+            </div>
+          </MetricCard>
+
+          <MetricCard
+            title="Coverage readiness"
+            value={complianceInsights.coveragePct}
+            unit="%"
+            subtitle={complianceInsights.missing.length ? `Missing: ${complianceInsights.missing.slice(0, 2).join(', ')}${complianceInsights.missing.length > 2 ? '…' : ''}` : 'All core domains present'}
+            critical={complianceInsights.coveragePct < 60}
+            expandable
+            expanded={!!expandedCards.coverage}
+            onClick={() => toggleCard('coverage')}
+          >
+            <div className="space-y-2 text-sm">
+              <div className="text-esg-sage/70">Recommended core telemetry</div>
+              <div className="grid grid-cols-2 gap-2">
+                {['Carbon', 'Water', 'Efficiency', 'Hardware', 'Data quality'].map((label) => (
+                  <div key={label} className="text-esg-forest">{label}</div>
+                ))}
+              </div>
+              {complianceInsights.missing.length > 0 && (
+                <div className="text-esg-alert">
+                  Missing: {complianceInsights.missing.join(', ')}
+                </div>
+              )}
+              <div>
+                <Link to="/telemetry" className="text-esg-sage hover:underline font-medium">
+                  Ingest missing domains →
+                </Link>
+              </div>
+            </div>
+          </MetricCard>
+
+          <MetricCard
+            title="Potential validation blockers"
+            value={complianceInsights.blockers.length}
+            unit=""
+            subtitle={complianceInsights.blockers.length ? 'Items to address before validation' : 'No obvious blockers detected'}
+            critical={complianceInsights.blockers.length > 0}
+            expandable
+            expanded={!!expandedCards.blockers}
+            onClick={() => toggleCard('blockers')}
+          >
+            <div className="space-y-2 text-sm">
+              {complianceInsights.blockers.length === 0 ? (
+                <div className="text-esg-sage/70">Keep telemetry fresh and upload your report for validation.</div>
+              ) : (
+                <div className="space-y-1">
+                  {complianceInsights.blockers.slice(0, 5).map((b, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-esg-forest">{b}</span>
+                      <span className="text-esg-sage/70">Action</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Link to="/telemetry" className="text-esg-sage hover:underline font-medium">
+                  Fix via ingestion →
+                </Link>
+                <Link to="/alerts" className="text-esg-sage hover:underline font-medium">
+                  Configure alerts →
+                </Link>
+              </div>
+            </div>
+          </MetricCard>
+
+          <MetricCard
+            title="Next step"
+            value={complianceInsights.coveragePct >= 60 && !complianceInsights.stale ? 'Validate' : 'Prepare'}
+            unit=""
+            subtitle="Recommended action to reach compliance"
+            critical={false}
+            expandable
+            expanded={!!expandedCards.nextStep}
+            onClick={() => toggleCard('nextStep')}
+          >
+            <div className="space-y-2 text-sm">
+              <div className="text-esg-sage/70">Suggested actions</div>
+              <div className="space-y-1">
+                {complianceInsights.nextActions.map((a, idx) => (
+                  <div key={idx} className="text-esg-forest">{a}</div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <Link to="/compliance" className="text-esg-sage hover:underline font-medium">
+                  Upload/validate report →
+                </Link>
+                <Link to="/telemetry" className="text-esg-sage hover:underline font-medium">
+                  Ingest data →
+                </Link>
+              </div>
+            </div>
+          </MetricCard>
+        </div>
+      </div>
+
       {/* Summary Stats */}
       {(hasAnyMetrics) && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -112,7 +312,36 @@ function DashboardTab({ metricsQuery }) {
               unit="/100"
               subtitle="Overall performance"
               className="border-l-4 border-esg-success"
-            />
+              expandable
+              expanded={!!expandedCards.sustainabilityScore}
+              onClick={() => toggleCard('sustainabilityScore')}
+            >
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-esg-sage/70">Coverage</span>
+                  <span className="text-esg-forest">Carbon, water, PUE, utilization</span>
+                </div>
+                {mediationOverall?.status && (
+                  <div className="flex justify-between">
+                    <span className="text-esg-sage/70">Mediation Health</span>
+                    <span className="font-medium text-esg-forest">{mediationOverall.status}</span>
+                  </div>
+                )}
+                {mediationOverall?.findings?.length > 0 && (
+                  <div>
+                    <div className="text-esg-sage/70 mb-1">Top findings</div>
+                    <div className="space-y-1">
+                      {mediationOverall.findings.slice(0, 3).map((f, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span className="text-esg-forest">{f.practice}</span>
+                          <span className="text-esg-sage/80">{f.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </MetricCard>
           )}
           {summaryStats.avgPUE != null && (
             <MetricCard
@@ -121,7 +350,23 @@ function DashboardTab({ metricsQuery }) {
               unit=""
               subtitle="Power Usage Effectiveness"
               critical={summaryStats.avgPUE > 2.0}
-            />
+              expandable
+              expanded={!!expandedCards.pue}
+              onClick={() => toggleCard('pue')}
+            >
+              <div className="space-y-2 text-sm">
+                <div className="text-esg-sage/70">Latest readings</div>
+                {efficiencyMetrics
+                  .filter((m) => m.metric_type === 'pue' || m.metric_type === 'cooling_energy_pct')
+                  .slice(0, 4)
+                  .map((m, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-esg-forest">{formatMetricName(m.metric_type)}</span>
+                      <span className="text-esg-sage/80">{m.value?.toFixed(2)} {m.unit}</span>
+                    </div>
+                  ))}
+              </div>
+            </MetricCard>
           )}
           {summaryStats.avgUtilization != null && (
             <MetricCard
@@ -130,10 +375,46 @@ function DashboardTab({ metricsQuery }) {
               unit="%"
               subtitle="Hardware utilization"
               critical={summaryStats.avgUtilization < 30}
-            />
+              expandable
+              expanded={!!expandedCards.utilization}
+              onClick={() => toggleCard('utilization')}
+            >
+              <div className="space-y-2 text-sm">
+                <div className="text-esg-sage/70">Latest readings</div>
+                {hardwareMetrics
+                  .filter((m) => m.metric_type === 'utilization_pct' || m.metric_type === 'idle_rate_pct')
+                  .slice(0, 4)
+                  .map((m, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-esg-forest">{formatMetricName(m.metric_type)}</span>
+                      <span className="text-esg-sage/80">{m.value?.toFixed(2)} {m.unit}</span>
+                    </div>
+                  ))}
+              </div>
+            </MetricCard>
           )}
           {summaryStats.totalCarbon > 0 && (
-            <MetricCard title="Total Carbon" value={summaryStats.totalCarbon} unit="kg CO₂e" subtitle="Cumulative" />
+            <MetricCard
+              title="Total Carbon"
+              value={summaryStats.totalCarbon}
+              unit="kg CO₂e"
+              subtitle="Cumulative"
+              expandable
+              expanded={!!expandedCards.totalCarbon}
+              onClick={() => toggleCard('totalCarbon')}
+            >
+              <div className="space-y-2 text-sm">
+                {carbonMetrics
+                  .filter((m) => ['total_kg_co2e', 'scope1_kg_co2e', 'scope2_kg_co2e'].includes(m.metric_type))
+                  .slice(0, 6)
+                  .map((m, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-esg-forest">{formatMetricName(m.metric_type)}</span>
+                      <span className="text-esg-sage/80">{m.value?.toFixed(2)} {m.unit}</span>
+                    </div>
+                  ))}
+              </div>
+            </MetricCard>
           )}
           {summaryStats.latestCarbonIntensity && (
             <MetricCard
@@ -141,10 +422,45 @@ function DashboardTab({ metricsQuery }) {
               value={summaryStats.latestCarbonIntensity.value}
               unit={summaryStats.latestCarbonIntensity.unit}
               subtitle="kg CO₂e per functional unit"
-            />
+              expandable
+              expanded={!!expandedCards.carbonIntensity}
+              onClick={() => toggleCard('carbonIntensity')}
+            >
+              <div className="space-y-2 text-sm">
+                {carbonMetrics
+                  .filter((m) => ['carbon_intensity', 'carbon_per_gpu_hour', 'carbon_per_training_run', 'carbon_per_inference_request'].includes(m.metric_type))
+                  .slice(0, 6)
+                  .map((m, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-esg-forest">{formatMetricName(m.metric_type)}</span>
+                      <span className="text-esg-sage/80">{m.value?.toFixed(4)} {m.unit}</span>
+                    </div>
+                  ))}
+              </div>
+            </MetricCard>
           )}
           {summaryStats.totalWater > 0 && (
-            <MetricCard title="Total Water" value={summaryStats.totalWater} unit="L" subtitle="Cumulative" />
+            <MetricCard
+              title="Total Water"
+              value={summaryStats.totalWater}
+              unit="L"
+              subtitle="Cumulative"
+              expandable
+              expanded={!!expandedCards.totalWater}
+              onClick={() => toggleCard('totalWater')}
+            >
+              <div className="space-y-2 text-sm">
+                {waterMetrics
+                  .filter((m) => ['total_withdrawal_liters', 'wue', 'water_per_gpu_hour', 'reclaimed_water_pct'].includes(m.metric_type))
+                  .slice(0, 6)
+                  .map((m, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-esg-forest">{formatMetricName(m.metric_type)}</span>
+                      <span className="text-esg-sage/80">{m.value?.toFixed(2)} {m.unit}</span>
+                    </div>
+                  ))}
+              </div>
+            </MetricCard>
           )}
         </div>
       )}
@@ -369,7 +685,7 @@ function IngestionTab({ onIngestSuccess }) {
       <div className="card p-6">
         <h3 className="font-display font-semibold text-esg-forest mb-2">Mock Library</h3>
         <p className="text-sm text-esg-sage/80 mb-4">
-          Load preset JSON by vertical and AI data center type to test ingestion.
+          Load preset JSON by industry vertical to test ingestion across different ESG use cases.
         </p>
 
         <div className="mb-6">

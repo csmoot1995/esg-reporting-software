@@ -1,6 +1,6 @@
 {
   "timestamp": "2024-06-15T12:00:00Z",
-  "asset_id": "DC1-RACK-A01",
+  "asset_id": "FACILITY-001",
   "region": "us-west",
   "source_id": "gateway-01",
   "external_event_id": "benchmark-001",
@@ -22,12 +22,12 @@
     "water_unit": "liters"
   },
   "compute": {
-    "gpu_hours": 200.0,
-    "gpu_count": 100,
+    "workload_hours": 200.0,
+    "asset_count": 100,
     "run_duration_seconds": 7200,
-    "run_type": "training",
-    "training_runs": 4,
-    "inference_requests": 0
+    "run_type": "production",
+    "production_units": 4,
+    "requests_processed": 0
   },
   "hardware": {
     "utilization_pct": 75.0,

@@ -1,14 +1,14 @@
 {
   "generated_at_utc": "2024-06-15T12:05:00Z",
-  "asset_id": "DC1-RACK-A01",
+  "asset_id": "FACILITY-001",
   "region": "us-west",
   "observation_time_utc": "2024-06-15T12:00:00Z",
   "carbon": {
     "total_kg_co2e": 350.0,
     "scope1_kg_co2e": 0.0,
     "scope2_kg_co2e": 350.0,
-    "carbon_per_gpu_hour": 1.75,
-    "carbon_per_training_run": 87.5,
+    "carbon_per_workload_hour": 1.75,
+    "carbon_per_production_unit": 87.5,
     "grid_carbon_intensity_kg_per_kwh": 0.35,
     "emission_factor_version": "v1"
   },
@@ -18,15 +18,15 @@
     "returned_liters": 6400.0,
     "reclaimed_water_pct": 20.0,
     "wue_L_per_kWh": 1.6,
-    "water_per_gpu_hour": 40.0,
-    "water_per_training_run": 2000.0
+    "water_per_workload_hour": 40.0,
+    "water_per_production_unit": 2000.0
   },
   "efficiency": {
     "pue": 1.2,
     "dcie": 0.833,
     "cooling_energy_pct": 15.0,
-    "energy_per_gpu_hour": 5.0,
-    "energy_per_training_run": 250.0
+    "energy_per_workload_hour": 5.0,
+    "energy_per_production_unit": 250.0
   },
   "hardware": {
     "utilization_pct": 75.0,
@@ -42,7 +42,7 @@
     "components": {
       "carbon_normalized": 0.583,
       "water_normalized": 1.0,
-      "pue_normalized": 0.0,
+      "efficiency_normalized": 0.0,
       "utilization_normalized": 0.9375
     },
     "weights": {

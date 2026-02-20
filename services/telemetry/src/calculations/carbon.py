@@ -1,11 +1,11 @@
 """
-Carbon calculations: Scope 1/2, carbon per GPU-hour, per training run, per inference, embodied.
+Carbon calculations: Scope 1/2, carbon per workload unit, per production unit, embodied carbon.
 All use versioned emission factors; formulas reproducible with historical factors.
 """
 from __future__ import annotations
 
 from .. import emission_factors
-from ..units import seconds_to_gpu_hours, normalize_energy, normalize_water
+from ..units import normalize_energy, normalize_water
 
 
 def scope1_from_generator_fuel(
@@ -17,12 +17,15 @@ def scope1_from_generator_fuel(
 ) -> tuple[float, str]:
     """Scope 1 emissions from generator fuel. Returns (kg_co2e, version_used)."""
     scope = "scope1_diesel" if (fuel_type or "").lower() in ("diesel",) else "scope1_natural_gas"
-    factor, version = emission_factors.get_factor(emission_factor_version, region, scope, timestamp_utc)
     if (fuel_type or "").lower() == "natural_gas":
-        # Factor is per m3; assume 1 m3 ≈ 1 liter for simplicity (in reality convert)
+        # Factor is per m3; 1 m3 = 1000 liters, so convert liters to m3
         factor, version = emission_factors.get_factor(emission_factor_version, region, "scope1_natural_gas", timestamp_utc)
-        # Typical NG: ~2 kg CO2e/m3; 1 m3 = 1000 L so per liter = 0.002 (simplified)
-        factor = factor / 1000.0
+        # Convert liters to cubic meters (1 m3 = 1000 L)
+        fuel_m3 = fuel_liters / 1000.0
+        kg = fuel_m3 * factor
+        return (round(kg, 6), version)
+    # Diesel or default: factor is per liter
+    factor, version = emission_factors.get_factor(emission_factor_version, region, "scope1_diesel", timestamp_utc)
     kg = fuel_liters * factor
     return (round(kg, 6), version)
 
@@ -41,44 +44,34 @@ def scope2_from_it_energy(
     return (round(kg, 6), version)
 
 
-def carbon_per_gpu_hour(
+def carbon_per_workload_unit(
     total_kg_co2e: float,
-    gpu_hours: float,
+    workload_hours: float,
 ) -> float:
-    """Carbon per GPU-hour (kg CO2e / GPU-hour). If gpu_hours <= 0, return 0."""
-    if gpu_hours <= 0:
+    """Carbon per workload-hour (kg CO2e / workload-hour). If workload_hours <= 0, return 0."""
+    if workload_hours <= 0:
         return 0.0
-    return round(total_kg_co2e / gpu_hours, 6)
+    return round(total_kg_co2e / workload_hours, 6)
 
 
-def carbon_per_training_run(
+def carbon_per_production_unit(
     total_kg_co2e: float,
-    training_runs: int,
+    production_units: int,
 ) -> float:
-    """Carbon per training run (kg CO2e per run). If runs <= 0, return 0."""
-    if not training_runs or training_runs <= 0:
+    """Carbon per production unit (kg CO2e per unit). If units <= 0, return 0."""
+    if production_units is None or production_units <= 0:
         return 0.0
-    return round(total_kg_co2e / training_runs, 6)
+    return round(total_kg_co2e / production_units, 6)
 
 
-def carbon_per_inference_request(
-    total_kg_co2e: float,
-    inference_requests: int,
-) -> float:
-    """Carbon per inference request (kg CO2e per request). If requests <= 0, return 0."""
-    if not inference_requests or inference_requests <= 0:
-        return 0.0
-    return round(total_kg_co2e / inference_requests, 6)
-
-
-def embodied_carbon_per_hardware_asset(
+def embodied_carbon_per_workload_hour(
     embodied_kg_co2e: float,
-    expected_lifetime_gpu_hours: float,
+    expected_lifetime_workload_hours: float,
 ) -> float:
-    """Amortized embodied carbon per GPU-hour for an asset (kg CO2e / GPU-hour)."""
-    if expected_lifetime_gpu_hours <= 0:
+    """Amortized embodied carbon per workload-hour for an asset (kg CO2e / workload-hour)."""
+    if expected_lifetime_workload_hours <= 0:
         return 0.0
-    return round(embodied_kg_co2e / expected_lifetime_gpu_hours, 6)
+    return round(embodied_kg_co2e / expected_lifetime_workload_hours, 6)
 
 
 def total_carbon_from_payload(
@@ -102,9 +95,9 @@ def total_carbon_from_payload(
         )
         scope1 = s1
     scope2 = 0.0
-    it = it_kwh if it_kwh is not None else facility_kwh
-    if it and it > 0:
-        s2, version = scope2_from_it_energy(it, region, version, market_based=False, timestamp_utc=timestamp_utc)
+    # Only use IT energy for scope2, never facility energy (which includes cooling)
+    if it_kwh is not None and it_kwh > 0:
+        s2, version = scope2_from_it_energy(it_kwh, region, version, market_based=False, timestamp_utc=timestamp_utc)
         scope2 = s2
     total = scope1 + scope2
     return (scope1, scope2, round(total, 6), version)

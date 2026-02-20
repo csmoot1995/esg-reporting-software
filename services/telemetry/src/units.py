@@ -2,7 +2,7 @@
 Unit normalization for ESG telemetry. All ingestion is normalized to canonical units:
 - Energy: kWh
 - Water: liters
-- Compute: GPU-hours (and run counts)
+- Workload: workload-hours (normalized for any industry vertical)
 - Mass/carbon: kg CO2e
 - Time: seconds (internal), hours for reporting
 """
@@ -67,15 +67,19 @@ def normalize_time_to_seconds(value: float, unit: str = "seconds") -> float:
     return float(value) * TIME_TO_SECONDS[u]
 
 
-def seconds_to_gpu_hours(seconds: float, gpu_count: float = 1.0) -> float:
-    """Convert elapsed seconds and GPU count to GPU-hours. 1 GPU for 1 hour = 1 GPU-hour."""
-    if gpu_count <= 0:
+def seconds_to_workload_hours(seconds: float, asset_count: float = 1.0) -> float:
+    """Convert elapsed seconds and asset count to workload-hours.
+    1 asset for 1 hour = 1 workload-hour.
+    Example: 4 GPUs running for 1 hour = 4 workload-hours.
+    Example: 10 vehicles running for 2 hours = 20 workload-hours.
+    """
+    if asset_count <= 0:
         return 0.0
-    return float(seconds) / 3600.0 * float(gpu_count)
+    return float(seconds) / 3600.0 * float(asset_count)
 
 
-def gpu_hours_to_seconds(gpu_hours: float, gpu_count: float = 1.0) -> float:
-    """Convert GPU-hours back to wall-clock seconds for gpu_count GPUs."""
-    if gpu_count <= 0:
+def workload_hours_to_seconds(workload_hours: float, asset_count: float = 1.0) -> float:
+    """Convert workload-hours back to wall-clock seconds for asset_count assets."""
+    if asset_count <= 0:
         return 0.0
-    return float(gpu_hours) * 3600.0 / float(gpu_count)
+    return float(workload_hours) * 3600.0 / float(asset_count)

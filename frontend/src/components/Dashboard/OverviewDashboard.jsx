@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import MetricCard from '../shared/MetricCard';
+import MetricPlate from '../shared/MetricPlate';
 import QuickLink from '../shared/QuickLink';
 import StatusBadge from '../shared/StatusBadge';
 import { health as complianceHealth } from '../../api/compliance';
 import { health as alertsHealth } from '../../api/alerts';
 import { health as simulatorHealth } from '../../api/simulator';
 import { health as telemetryHealth, getMetricsReport } from '../../api/telemetry';
+import { 
+  Cloud, Droplets, Zap, Activity, TrendingUp, 
+  AlertTriangle, CheckCircle2, ArrowRight
+} from 'lucide-react';
 
 export default function OverviewDashboard() {
   // Health checks for all services
@@ -52,13 +56,24 @@ export default function OverviewDashboard() {
   const efficiencyMetrics = metrics.efficiency || [];
   const hardwareMetrics = metrics.hardware || [];
 
+  // Get the most recent metrics with full lineage data
+  const latestPUE = efficiencyMetrics.find((m) => m.metric_type === 'pue');
+  const latestUtil = hardwareMetrics.find((m) => m.metric_type === 'utilization_pct');
+  const latestCarbon = carbonMetrics[0];
+  const latestWater = waterMetrics[0];
+
   // Calculate summary stats
   const summaryStats = {
     totalCarbon: carbonMetrics.reduce((sum, m) => sum + (m.value || 0), 0) || 0,
     totalWater: waterMetrics.reduce((sum, m) => sum + (m.value || 0), 0) || 0,
-    avgPUE: efficiencyMetrics.find((m) => m.metric_type === 'pue')?.value || null,
-    avgUtilization: hardwareMetrics.find((m) => m.metric_type === 'utilization_pct')?.value || null,
+    avgPUE: latestPUE?.value || null,
+    avgUtilization: latestUtil?.value || null,
     sustainabilityScore: metrics.sustainability_score || null,
+    // Store full metric objects for rich data display
+    latestPUE,
+    latestUtil,
+    latestCarbon,
+    latestWater,
   };
 
   const allServicesHealthy =
@@ -77,7 +92,7 @@ export default function OverviewDashboard() {
       <div className="mb-8">
         <h1 className="font-display text-3xl font-bold text-esg-forest mb-2">Sustainability Dashboard</h1>
         <p className="text-esg-sage/90">
-          Unified view of your AI data center's environmental performance, compliance status, and sustainability metrics.
+          Unified view of your organization's environmental performance, compliance status, and sustainability metrics across all operations.
         </p>
       </div>
 
@@ -116,7 +131,7 @@ export default function OverviewDashboard() {
         </div>
       </div>
 
-      {/* Key Metrics Overview */}
+      {/* Key Metrics Overview - Now with MetricPlate for rich interactivity */}
       <div>
         <h3 className="font-display font-semibold text-esg-forest mb-4">Key Metrics</h3>
         {(summaryStats.totalCarbon > 0 ||
@@ -126,51 +141,111 @@ export default function OverviewDashboard() {
           summaryStats.sustainabilityScore) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {summaryStats.sustainabilityScore != null && (
-              <MetricCard
+              <MetricPlate
                 title="Sustainability Score"
                 value={summaryStats.sustainabilityScore}
                 unit=""
                 subtitle="Overall performance"
-                onClick={() => (window.location.href = '/telemetry')}
+                status="healthy"
+                icon={<CheckCircle2 className="w-4 h-4 text-esg-success" />}
                 className="border-l-4 border-esg-success"
+                relatedLinks={[
+                  { to: '/telemetry', label: 'View detailed metrics →', icon: <ArrowRight className="w-3 h-3" /> },
+                  { to: '/simulator', label: 'Try what-if scenarios →', icon: <ArrowRight className="w-3 h-3" /> },
+                ]}
               />
             )}
             {summaryStats.avgPUE != null && (
-              <MetricCard
+              <MetricPlate
+                metric={summaryStats.latestPUE}
                 title="Average PUE"
                 value={summaryStats.avgPUE}
                 unit=""
                 subtitle="Power Usage Effectiveness"
                 critical={summaryStats.avgPUE > 2.0}
-                onClick={() => (window.location.href = '/telemetry')}
+                status={summaryStats.avgPUE > 2.0 ? 'warning' : 'healthy'}
+                icon={<Zap className="w-4 h-4 text-amber-500" />}
+                timestamp={summaryStats.latestPUE?.timestamp_utc}
+                assetId={summaryStats.latestPUE?.asset_id}
+                region={summaryStats.latestPUE?.region}
+                lineage={summaryStats.latestPUE?.lineage}
+                workflowState={3}
+                actions={[
+                  { label: 'View Details', variant: 'secondary', onClick: () => window.location.href = '/telemetry' },
+                  ...(summaryStats.avgPUE > 2.0 ? [{ label: 'Optimize', variant: 'primary', onClick: () => window.location.href = '/simulator' }] : []),
+                ]}
+                relatedLinks={[
+                  { to: '/telemetry', label: 'View efficiency metrics →' },
+                  { to: '/alerts', label: 'Check alerts →' },
+                ]}
               />
             )}
             {summaryStats.avgUtilization != null && (
-              <MetricCard
+              <MetricPlate
+                metric={summaryStats.latestUtil}
                 title="Hardware Utilization"
                 value={summaryStats.avgUtilization}
                 unit="%"
                 subtitle="Average utilization rate"
                 critical={summaryStats.avgUtilization < 30}
-                onClick={() => (window.location.href = '/telemetry')}
+                status={summaryStats.avgUtilization < 30 ? 'warning' : 'healthy'}
+                icon={<Activity className="w-4 h-4 text-purple-500" />}
+                timestamp={summaryStats.latestUtil?.timestamp_utc}
+                assetId={summaryStats.latestUtil?.asset_id}
+                region={summaryStats.latestUtil?.region}
+                lineage={summaryStats.latestUtil?.lineage}
+                workflowState={3}
+                actions={[
+                  { label: 'View Details', variant: 'secondary', onClick: () => window.location.href = '/telemetry' },
+                ]}
+                relatedLinks={[
+                  { to: '/telemetry', label: 'View hardware metrics →' },
+                ]}
               />
             )}
             {summaryStats.totalCarbon > 0 && (
-              <MetricCard
+              <MetricPlate
+                metric={summaryStats.latestCarbon}
                 title="Total Carbon"
                 value={summaryStats.totalCarbon}
                 unit="kg CO₂e"
                 subtitle="Cumulative emissions"
-                onClick={() => (window.location.href = '/telemetry')}
+                icon={<Cloud className="w-4 h-4 text-emerald-600" />}
+                timestamp={summaryStats.latestCarbon?.timestamp_utc}
+                assetId={summaryStats.latestCarbon?.asset_id}
+                region={summaryStats.latestCarbon?.region}
+                lineage={summaryStats.latestCarbon?.lineage}
+                workflowState={3}
+                trend={-5.2} // Example: would calculate from historical data
+                actions={[
+                  { label: 'View Breakdown', variant: 'secondary', onClick: () => window.location.href = '/telemetry' },
+                  { label: 'Reduce Carbon', variant: 'primary', onClick: () => window.location.href = '/simulator' },
+                ]}
+                relatedLinks={[
+                  { to: '/telemetry', label: 'View carbon metrics →' },
+                  { to: '/compliance', label: 'Generate report →' },
+                ]}
               />
             )}
             {summaryStats.totalWater > 0 && (
-              <MetricCard
+              <MetricPlate
+                metric={summaryStats.latestWater}
                 title="Total Water"
                 value={summaryStats.totalWater}
                 unit="L"
                 subtitle="Cumulative usage"
-                onClick={() => (window.location.href = '/telemetry')}
+                icon={<Droplets className="w-4 h-4 text-blue-500" />}
+                timestamp={summaryStats.latestWater?.timestamp_utc}
+                assetId={summaryStats.latestWater?.asset_id}
+                region={summaryStats.latestWater?.region}
+                lineage={summaryStats.latestWater?.lineage}
+                workflowState={3}
+                actions={[
+                  { label: 'View Details', variant: 'secondary', onClick: () => window.location.href = '/telemetry' },
+                ]}
+                relatedLinks={[
+                  { to: '/telemetry', label: 'View water metrics →' },
+                ]}
               />
             )}
           </div>
