@@ -38,7 +38,7 @@ The platform is architected as a constellation of purpose-built microservices, e
 
 ```mermaid
 flowchart TB
-    subgraph Ingestion[" Telemetry Ingestion Service (Port 8083)"]
+    subgraph Ingestion[" Telemetry Ingestion Service"]
         A1[Sensor Data API]
         A2[CSV/JSONL Bulk Upload]
         A3[External ETL Hooks]
@@ -50,19 +50,19 @@ flowchart TB
         B3[Versioned Emission Factors]
     end
 
-    subgraph Compliance[" Compliance Service (Port 8080)"]
+    subgraph Compliance[" Compliance Service"]
         C1[GHG Protocol Calculations]
         C2[Regulatory Report Generation]
         C3[Audit Log Emission]
     end
 
-    subgraph Simulator[" Simulator Service (Port 8082)"]
+    subgraph Simulator[" Simulator Service"]
         D1[Monte Carlo Projections]
         D2[What-If Scenario Modeling]
         D3[Efficiency Trend Forecasting]
     end
 
-    subgraph Alerts[" Alerts Service (Port 8081)"]
+    subgraph Alerts[" Alerts Service"]
         E1[Threshold Monitoring]
         E2[Anomaly Detection]
         E3[Webhook Notifications]
@@ -74,7 +74,7 @@ flowchart TB
         F3[Versioned Emission Factor Registry]
     end
 
-    subgraph Frontend[" Next.js Frontend (Port 3000)"]
+    subgraph Frontend[" Next.js Frontend"]
         G1[Dashboard]
         G2[Scorecards]
         G3[Lineage Explorer]
