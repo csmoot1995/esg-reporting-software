@@ -118,14 +118,14 @@ export default function MetricPlate({
           {assetId && (
             <div className="flex items-center gap-1 text-xs text-esg-sage/60 bg-esg-cream/50 px-2 py-0.5 rounded">
               <Server className="w-3 h-3" />
-              {assetId}
+              {assetId.replace(/_/g, ' ')}
             </div>
           )}
           
           {region && (
             <div className="flex items-center gap-1 text-xs text-esg-sage/60 bg-esg-cream/50 px-2 py-0.5 rounded">
               <Globe className="w-3 h-3" />
-              {region}
+              {region.replace(/_/g, ' ')}
             </div>
           )}
         </div>
@@ -204,19 +204,19 @@ export default function MetricPlate({
                 {lineage.source_id && (
                   <div className="flex justify-between">
                     <span>Source:</span>
-                    <span className="font-medium">{lineage.source_id}</span>
+                    <span className="font-medium">{lineage.source_id.replace(/_/g, ' ')}</span>
                   </div>
                 )}
                 {lineage.emission_factor_version && (
                   <div className="flex justify-between">
                     <span>EF Version:</span>
-                    <span className="font-medium">{lineage.emission_factor_version}</span>
+                    <span className="font-medium">{lineage.emission_factor_version.replace(/_/g, ' ')}</span>
                   </div>
                 )}
                 {lineage.calculation_step && (
                   <div className="flex justify-between">
                     <span>Calculation:</span>
-                    <span className="font-medium">{lineage.calculation_step}</span>
+                    <span className="font-medium">{lineage.calculation_step.replace(/_/g, ' ')}</span>
                   </div>
                 )}
                 {lineage.computed_at && (

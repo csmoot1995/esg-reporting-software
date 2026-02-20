@@ -9,7 +9,8 @@ import { health as simulatorHealth } from '../../api/simulator';
 import { health as telemetryHealth, getMetricsReport } from '../../api/telemetry';
 import { 
   Cloud, Droplets, Zap, Activity, TrendingUp, 
-  AlertTriangle, CheckCircle2, ArrowRight
+  AlertTriangle, CheckCircle2, ArrowRight,
+  BarChart3, FileText, Bell, Sparkles
 } from 'lucide-react';
 
 export default function OverviewDashboard() {
@@ -269,28 +270,28 @@ export default function OverviewDashboard() {
             to="/telemetry"
             title="Telemetry Portal"
             description="Ingest data & view real-time sustainability metrics"
-            icon="�"
+            icon={<BarChart3 className="w-6 h-6" />}
             badge={telemetryHealthQuery.isError ? 'Offline' : 'Active'}
           />
           <QuickLink
             to="/compliance"
             title="Compliance"
             description="Upload and validate ESG reports"
-            icon="📋"
+            icon={<FileText className="w-6 h-6" />}
             badge={complianceHealthQuery.isError ? 'Offline' : 'Active'}
           />
           <QuickLink
             to="/alerts"
             title="Real-Time Alerts"
             description="Monitor CO₂ and temperature thresholds"
-            icon="⚠️"
+            icon={<Bell className="w-6 h-6" />}
             badge={alertsHealthQuery.isError ? 'Offline' : 'Live'}
           />
           <QuickLink
             to="/simulator"
             title="What-If Simulator"
             description="Project carbon footprint scenarios"
-            icon="🔮"
+            icon={<Sparkles className="w-6 h-6" />}
             badge={simulatorHealthQuery.isError ? 'Offline' : 'Ready'}
           />
         </div>

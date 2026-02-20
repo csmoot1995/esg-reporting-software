@@ -7,51 +7,82 @@
 @layer base {
   html {
     @apply antialiased;
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-esg-cream text-esg-forest font-sans min-h-screen;
+    background-image: 
+      radial-gradient(ellipse at top, rgba(126, 184, 154, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(13, 59, 46, 0.03) 0%, transparent 40%);
   }
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl shadow-lg border border-esg-mint/20 overflow-hidden;
+    @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-esg-mint/20 overflow-hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .card:hover {
+    @apply shadow-xl;
+    transform: translateY(-2px);
   }
   .card-critical {
-    @apply card border-2 border-esg-alert bg-red-50/80;
+    @apply card border-2 border-esg-alert bg-gradient-to-br from-red-50/90 to-red-50/60;
   }
   .btn-primary {
-    @apply px-5 py-2.5 rounded-lg font-semibold text-base bg-esg-sage text-white shadow-md hover:bg-esg-forest hover:shadow-lg focus:ring-2 focus:ring-esg-mint focus:ring-offset-2 transition-all disabled:opacity-50 disabled:pointer-events-none border-2 border-esg-forest/20;
+    @apply px-5 py-2.5 rounded-xl font-semibold text-base bg-esg-sage text-white shadow-md 
+           hover:bg-esg-forest hover:shadow-lg focus:ring-2 focus:ring-esg-mint focus:ring-offset-2 
+           transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none 
+           border border-esg-forest/20 hover:scale-[1.02] active:scale-[0.98];
   }
   .btn-secondary {
-    @apply px-5 py-2.5 rounded-lg font-semibold text-base bg-esg-mint/40 text-esg-forest border-2 border-esg-sage/50 shadow hover:bg-esg-mint/60 hover:shadow-md focus:ring-2 focus:ring-esg-sage focus:ring-offset-2 transition-all;
+    @apply px-5 py-2.5 rounded-xl font-semibold text-base bg-white/80 text-esg-forest 
+           border-2 border-esg-sage/50 shadow-sm hover:bg-esg-mint/20 hover:shadow-md 
+           focus:ring-2 focus:ring-esg-sage focus:ring-offset-2 transition-all duration-200
+           hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm;
+  }
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg font-medium text-esg-sage hover:text-esg-forest 
+           hover:bg-esg-mint/20 transition-all duration-200;
   }
   .input-field {
-    @apply w-full rounded-lg border border-esg-sage/30 bg-white px-3 py-2 text-esg-forest placeholder-esg-sage/50 focus:border-esg-sage focus:outline-none focus:ring-1 focus:ring-esg-sage;
+    @apply w-full rounded-xl border-2 border-esg-sage/20 bg-white/80 px-4 py-2.5 
+           text-esg-forest placeholder-esg-sage/50 focus:border-esg-sage focus:outline-none 
+           focus:ring-2 focus:ring-esg-mint/50 transition-all duration-200
+           hover:border-esg-sage/40 backdrop-blur-sm;
   }
   .toast-critical {
-    @apply fixed top-4 right-4 z-50 max-w-md rounded-lg border-2 border-esg-alert bg-red-50 px-4 py-3 shadow-xl;
+    @apply fixed top-4 right-4 z-50 max-w-md rounded-xl border-2 border-esg-alert 
+           bg-gradient-to-br from-red-50 to-red-100 px-4 py-3 shadow-2xl backdrop-blur-sm;
     animation: toast-in 0.3s ease-out;
+  }
+
+  /* Glass effect for elevated surfaces */
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/50 shadow-lg;
+  }
+  .glass-dark {
+    @apply bg-esg-forest/80 backdrop-blur-md border border-esg-forest/30 shadow-lg text-white;
   }
 
   /* Sustainability telemetry: metric cards by domain (carbon, water, efficiency, hardware, data quality) */
   .metric-card {
-    @apply card p-4 flex flex-col gap-1;
+    @apply card p-5 flex flex-col gap-2;
   }
   .metric-card-carbon {
-    @apply metric-card border-l-4 border-esg-carbon bg-gray-50/60;
+    @apply metric-card border-l-4 border-esg-carbon bg-gradient-to-br from-gray-50/80 to-gray-50/40;
   }
   .metric-card-water {
-    @apply metric-card border-l-4 border-esg-water bg-sky-50/50;
+    @apply metric-card border-l-4 border-esg-water bg-gradient-to-br from-sky-50/70 to-sky-50/30;
   }
   .metric-card-efficiency {
-    @apply metric-card border-l-4 border-esg-efficiency bg-esg-mint/15;
+    @apply metric-card border-l-4 border-esg-efficiency bg-gradient-to-br from-esg-mint/20 to-esg-mint/5;
   }
   .metric-card-hardware {
-    @apply metric-card border-l-4 border-esg-hardware bg-violet-50/50;
+    @apply metric-card border-l-4 border-esg-hardware bg-gradient-to-br from-violet-50/70 to-violet-50/30;
   }
   .metric-card-data-quality {
-    @apply metric-card border-l-4 border-esg-data-quality bg-amber-50/40;
+    @apply metric-card border-l-4 border-esg-data-quality bg-gradient-to-br from-amber-50/60 to-amber-50/30;
   }
 
   /* Sustainability scorecard (composite index from carbon, water, PUE, utilization) */
@@ -59,18 +90,19 @@
     @apply card p-6 flex flex-col gap-4;
   }
   .scorecard-grade {
-    @apply inline-flex items-center justify-center rounded-full font-display font-bold text-white text-sm min-w-[2.5rem] min-h-[2.5rem];
+    @apply inline-flex items-center justify-center rounded-full font-display font-bold text-white 
+           text-sm min-w-[2.5rem] min-h-[2.5rem] shadow-md;
   }
-  .scorecard-grade-a { @apply scorecard-grade bg-esg-success; }
-  .scorecard-grade-b { @apply scorecard-grade bg-esg-sage; }
-  .scorecard-grade-c { @apply scorecard-grade bg-esg-amber; }
-  .scorecard-grade-d { @apply scorecard-grade bg-orange-500; }
-  .scorecard-grade-f { @apply scorecard-grade bg-esg-alert; }
+  .scorecard-grade-a { @apply scorecard-grade bg-gradient-to-br from-esg-success to-green-600; }
+  .scorecard-grade-b { @apply scorecard-grade bg-gradient-to-br from-esg-sage to-green-700; }
+  .scorecard-grade-c { @apply scorecard-grade bg-gradient-to-br from-esg-amber to-amber-600; }
+  .scorecard-grade-d { @apply scorecard-grade bg-gradient-to-br from-orange-500 to-orange-600; }
+  .scorecard-grade-f { @apply scorecard-grade bg-gradient-to-br from-esg-alert to-red-700; }
   .scorecard-component-bar {
-    @apply h-2 rounded-full bg-esg-mint/20 overflow-hidden;
+    @apply h-2.5 rounded-full bg-esg-mint/20 overflow-hidden;
   }
   .scorecard-component-fill {
-    @apply h-full rounded-full transition-all duration-500;
+    @apply h-full rounded-full transition-all duration-700 ease-out;
   }
 
   /* Telemetry ingest / report status and lineage */
@@ -81,7 +113,8 @@
     @apply text-esg-alert font-medium;
   }
   .lineage-badge {
-    @apply inline-flex items-center gap-1 rounded-md bg-esg-mint/25 px-2 py-0.5 text-xs font-medium text-esg-forest;
+    @apply inline-flex items-center gap-1.5 rounded-lg bg-esg-mint/25 px-2.5 py-1 
+           text-xs font-medium text-esg-forest border border-esg-mint/30;
   }
 
   /* Smooth transitions for contextual navigation */
@@ -91,19 +124,98 @@
 
   /* Enhanced card hover effects */
   .card-hover {
-    @apply transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5;
+    @apply transition-all duration-300 ease-out hover:shadow-2xl hover:-translate-y-1;
+  }
+  
+  /* Status indicators */
+  .status-dot {
+    @apply w-2.5 h-2.5 rounded-full;
+  }
+  .status-dot-online {
+    @apply status-dot bg-esg-success shadow-[0_0_8px_rgba(21,128,61,0.5)];
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+  .status-dot-offline {
+    @apply status-dot bg-esg-alert;
+  }
+  .status-dot-warning {
+    @apply status-dot bg-esg-amber;
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  /* Navigation tabs */
+  .nav-tab {
+    @apply px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200;
+  }
+  .nav-tab-active {
+    @apply nav-tab border-esg-sage text-esg-sage;
+  }
+  .nav-tab-inactive {
+    @apply nav-tab border-transparent text-esg-forest/70 hover:text-esg-forest hover:border-esg-sage/30;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-esg-forest to-esg-sage bg-clip-text text-transparent;
+  }
+
+  /* Loading shimmer */
+  .shimmer {
+    @apply relative overflow-hidden bg-esg-mint/20 rounded;
+  }
+  .shimmer::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 1.5s infinite;
   }
 }
 
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(-0.5rem);
+    transform: translateY(-0.5rem) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
 }
 
 /* Recharts: base + sustainability telemetry series (carbon, water, efficiency, etc.) */
@@ -118,5 +230,5 @@
   @apply text-esg-forest text-sm;
 }
 .recharts-tooltip-wrapper {
-  @apply rounded-lg border border-esg-mint/30 bg-esg-cream/95 shadow-lg px-3 py-2;
+  @apply rounded-xl border-2 border-esg-mint/30 bg-esg-cream/95 shadow-xl px-3 py-2 backdrop-blur-sm;
 }

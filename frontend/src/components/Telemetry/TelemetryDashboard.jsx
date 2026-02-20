@@ -96,13 +96,13 @@ function MetricDetailModal({ metric, onClose }) {
           {metric.asset_id && (
             <div className="flex justify-between">
               <span className="text-esg-sage/70">Asset:</span>
-              <span className="font-medium text-esg-forest">{metric.asset_id}</span>
+              <span className="font-medium text-esg-forest">{metric.asset_id.replace(/_/g, ' ')}</span>
             </div>
           )}
           {metric.region && (
             <div className="flex justify-between">
               <span className="text-esg-sage/70">Region:</span>
-              <span className="font-medium text-esg-forest">{metric.region}</span>
+              <span className="font-medium text-esg-forest">{metric.region.replace(/_/g, ' ')}</span>
             </div>
           )}
         </div>
@@ -155,7 +155,7 @@ function MetricSection({ title, metrics, emptyMessage = 'No metrics available' }
                   title={formatMetricName(metric.metric_type)}
                   value={metric.value}
                   unit={metric.unit}
-                  subtitle={metric.asset_id ? `Asset: ${metric.asset_id}` : metric.region ? `Region: ${metric.region}` : null}
+                  subtitle={metric.asset_id ? `Asset: ${metric.asset_id.replace(/_/g, ' ')}` : metric.region ? `Region: ${metric.region.replace(/_/g, ' ')}` : null}
                   critical={isCritical}
                   icon={getMetricIcon(metric.metric_type)}
                   onClick={() => setSelectedMetric(metric)}
