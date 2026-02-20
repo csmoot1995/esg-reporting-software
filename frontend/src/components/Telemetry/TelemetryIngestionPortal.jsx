@@ -64,7 +64,7 @@ function MetricSection({ title, metrics, emptyMessage = 'No metrics available', 
               title={formatMetricName(metric.metric_type)}
               value={metric.value}
               unit={metric.unit}
-              subtitle={metric.asset_id ? `Asset: ${metric.asset_id}` : metric.region ? `Region: ${metric.region}` : null}
+              subtitle={metric.asset_id ? `Asset: ${metric.asset_id.replace(/_/g, ' ')}` : metric.region ? `Region: ${metric.region.replace(/_/g, ' ')}` : null}
               critical={isCritical}
             />
           );
@@ -421,7 +421,7 @@ function DashboardTab({ metricsQuery }) {
               title="Carbon Intensity"
               value={summaryStats.latestCarbonIntensity.value}
               unit={summaryStats.latestCarbonIntensity.unit}
-              subtitle="kg CO₂e per functional unit"
+              subtitle="Per unit of activity"
               expandable
               expanded={!!expandedCards.carbonIntensity}
               onClick={() => toggleCard('carbonIntensity')}

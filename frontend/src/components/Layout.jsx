@@ -53,7 +53,7 @@ export default function Layout({ children }) {
       </main>
       <footer className="bg-esg-forest/95 text-esg-cream/70 py-4 mt-12">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm">
-          ESG Platform — AI Data Center Sustainability Monitoring
+          ESG Platform — Enterprise Sustainability Monitoring
         </div>
       </footer>
     </div>
